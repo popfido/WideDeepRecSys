@@ -50,6 +50,7 @@ The Minimal required tensorflow version is r1.14 since I changed most of tensorf
 - numpy
 - yaml
 - PIL
+- absl-py
 
 ## Running the code
 ### Setup
