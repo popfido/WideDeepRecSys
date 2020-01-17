@@ -34,7 +34,7 @@ The Minimal required tensorflow version is r1.14 since I changed most of tensorf
 3. support multi value feature input (multihot).
 4. support distributed tensorflow  
 5. support custom dnn network (arbitrary connections between layers) with flexible options.
-6. add BN layer; activation_fn; l1,l2 reg; weight decay lr options for training.
+6. support BN layer; activation_fn; l1,l2 reg; weight decay lr options for training.
 7. support dnn, multidnn joint learning, even combine with cnn.
 8. support 3 types normalization for continuous features.
 9. support weight column for imbalance sample.
