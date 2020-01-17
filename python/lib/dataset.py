@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/1/24
+# @Author: popfido
+# @Date  : 2020/1/15
 """Parse data and generate input_fn for tf.estimators"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from collections import OrderedDict
 import abc
 import tensorflow as tf
@@ -24,11 +20,11 @@ class _CTRDataset(object):
     """Interface for dataset using abstract class"""
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, data_file):
+    def __init__(self, data_file: str):
         # check file exsits, turn to list so that data_file can be both file or directory.
-        assert tf.gfile.Exists(data_file), (
+        assert tf.io.gfile.exists(data_file), (
             'data file: {} not found. Please check input data path'.format(data_file))
-        if tf.gfile.IsDirectory(data_file):
+        if tf.io.gfile.isdir(data_file):
             data_file_list = [f for f in tf.gfile.ListDirectory(data_file) if not f.startswith('.')]
             data_file = [data_file + '/' + file_name for file_name in data_file_list]
         self._data_file = data_file
@@ -45,12 +41,14 @@ class _CTRDataset(object):
         """
         Abstract input function for train or evaluation (with label),
         abstract method must be implemented in subclasses when instantiate.
+
         Args:
             mode: `train`, `eval` or `pred`
                 train for train mode, do shuffle, repeat num_epochs
                 eval for eval mode, no shuffle, no repeat
                 pred for pred input_fn, no shuffle, no repeat and no label 
             batch_size: Int
+
         Returns:
             (features, label) 
             `features` is a dictionary in which each value is a batch of values for
@@ -62,7 +60,7 @@ class _CTRDataset(object):
 class _CsvDataset(_CTRDataset):
     """A class to parse csv data and build input_fn for tf.estimators"""
 
-    def __init__(self, data_file):
+    def __init__(self, data_file: str):
         super(_CsvDataset, self).__init__(data_file)
         self._pos_sample_loss_weight = self._train_conf["pos_sample_loss_weight"]
         self._neg_sample_loss_weight = self._train_conf["neg_sample_loss_weight"]
@@ -104,8 +102,13 @@ class _CsvDataset(_CTRDataset):
                 csv_defaults[f] = ['']
         return csv_defaults
 
-    def _parse_csv(self, is_pred=False, field_delim='\t', na_value='-', multivalue_delim=','):
+    def _parse_csv(self,
+                   is_pred: bool = False,
+                   field_delim: str = '\t',
+                   na_value: str = '-',
+                   multivalue_delim: str = ','):
         """Parse function for csv data
+
         Args:
             is_pred: bool, defaults to False
                 True for pred mode, parse input data with label
@@ -119,6 +122,7 @@ class _CsvDataset(_CTRDataset):
                      a, c      2    ...
                      b, c      0    ...
             multivalue_delim: multivalue feature delimiter, defaults to `,`
+
         Returns:
             feature dict: {feature: Tensor ... }
         """
@@ -130,18 +134,18 @@ class _CsvDataset(_CTRDataset):
         neg_w = self._neg_sample_loss_weight
         use_weight = self._use_weight
 
-        def parser(value):
+        def parser(value: tf.Tensor):
             """Parse train and eval data with label
             Args:
                 value: Tensor("arg0:0", shape=(), dtype=string)
             """
             # `tf.decode_csv` return rank 0 Tensor list: <tf.Tensor 'DecodeCSV:60' shape=() dtype=string>
             # na_value fill with record_defaults
-            columns = tf.decode_csv(
-                value, record_defaults=csv_defaults.values(),
+            columns = tf.io.decode_csv(
+                value, record_defaults=[v for v in csv_defaults.values()],
                 field_delim=field_delim, use_quote_delim=False, na_value=na_value)
             features = dict(zip(csv_defaults.keys(), columns))
-            for f, tensor in features.items():
+            for f, tensor in [(k, v) for k, v in features.items()]:
                 if f in self._feature_unused:
                     features.pop(f)  # remove unused features
                     continue
@@ -160,14 +164,14 @@ class _CsvDataset(_CTRDataset):
                     pred = labels[0] if multivalue else labels  # pred must be rank 0 scalar
                     pos_weight, neg_weight = pos_w or 1, neg_w or 1
                     weight = tf.cond(pred, lambda: pos_weight, lambda: neg_weight)
-                    features["weight_column"] = [weight]  # padded_batch need rank 1
+                    features['weight_column'] = [weight]  # padded_batch need rank 1
                 return features, labels
         return parser
 
     def input_fn(self, mode, batch_size):
         assert mode in {'train', 'eval', 'pred'}, (
             'mode must in `train`, `eval`, or `pred`, found {}'.format(mode))
-        tf.logging.info('Parsing input csv files: {}'.format(self._data_file))
+        tf.compat.v1.logging.info('Parsing input csv files: {}'.format(self._data_file))
         # Extract lines from input files using the Dataset API.
         dataset = tf.data.TextLineDataset(self._data_file)
         if self._is_distribution:  # allows each worker to read a unique subset.
@@ -192,7 +196,7 @@ class _CsvDataset(_CTRDataset):
         else:
             # batch(): each element tensor must have exactly same shape, change rank 0 to rank 1
             dataset = dataset.batch(batch_size)
-        return dataset.make_one_shot_iterator().get_next()
+        return tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()
 
 
 class _ImageDataSet(_CTRDataset):
@@ -202,7 +206,6 @@ class _ImageDataSet(_CTRDataset):
     """
     def __init__(self, data_file):
         super(_ImageDataSet, self).__init__(data_file)
-        print(self._cnn_conf['cnn_height'])
         self._height = self._cnn_conf['cnn_height']
         self._width = self._cnn_conf['cnn_width']
         self._num_channels = self._cnn_conf['cnn_num_channels']
@@ -210,12 +213,17 @@ class _ImageDataSet(_CTRDataset):
         self._momentum = self._cnn_conf['cnn_momentum']
         self._use_distortion = self._cnn_conf['cnn_use_distortion']
 
-    def parse_example(self, serialized_example, is_training, preprocess='custom'):
+    def parse_example(self,
+                      serialized_example,
+                      is_training,
+                      preprocess: str = 'custom'):
         """Parses a single tf.Example into image tensors.
+
         Args:
             preprocess: 'custom' or 'vgg'
                 custom: custom image preprocessing, see utils.image_preprocessing
                 vgg: standard vgg preprocessing, see utils.vgg_preprocessing
+
         Returns:
             feature dict {'image': Tensor}
         """
@@ -312,10 +320,8 @@ def input_fn(csv_data_file, img_data_file, mode, batch_size):
 
 def _input_tensor_test(data_file, batch_size=5):
     """test for categorical_column and cross_column input."""
-    sess = tf.InteractiveSession()
+    tf.enable_eager_execution()
     features, labels = _CsvDataset(data_file).input_fn('train', batch_size=batch_size)
-    print(features['ucomp'].eval())
-    print(features['city_id'].eval())
     # categorical_column* can handle multivalue feature as a multihot
     ucomp = tf.feature_column.categorical_column_with_hash_bucket('ucomp', 10)
     city_id = tf.feature_column.categorical_column_with_hash_bucket('city_id', 10)
@@ -326,9 +332,9 @@ def _input_tensor_test(data_file, batch_size=5):
         # sess.run(tf.global_variables_initializer())
         # input_tensor = tf.feature_column.input_layer(features, f_embed)
         input_tensor = tf.feature_column.input_layer(features, f_dense)
-        print('{} input tensor:\n {}'.format(f, input_tensor.eval()))
+        print('{} input tensor:\n {}'.format(f, input_tensor))
     # dense_tensor = tf.feature_column.input_layer(features, [ucomp, city_id, ucomp_X_city_id])
-    # print('total input tensor:\n {}'.format(sess.run(dense_tensor)))
+    # print('total input tensor:\n {}'.format(dense_tensor))
 
     # wide_columns, deep_columns = build_model_columns()
     # dense_tensor = tf.feature_column.input_layer(features, deep_columns)
@@ -336,13 +342,14 @@ def _input_tensor_test(data_file, batch_size=5):
     # sess.run(tf.tables_initializer())  # fix Table not initialized error.
     # print(sess.run(dense_tensor))
 
+
 if __name__ == '__main__':
     csv_path = '../../data/train/train1'
     img_path = '../../data/image/train.tfrecords'
     _input_tensor_test(csv_path)
     sess = tf.InteractiveSession()
-    data = input_fn(csv_path, img_path, 'train', 5)
-    print(sess.run(data))
+    data = input_fn(csv_path, None, 'train', 5)
+    print(data)
 
 
 

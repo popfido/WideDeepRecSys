@@ -2,8 +2,8 @@
 # The script load processed raw data from hdfs path to appops path.
 # Usage: 
 #		1. bash load_process_data.sh  # default to load yesterday data
-#       2. bash load_process_data.sh  20180110  # one param $1 to load certain date data
-#       3. bash load_process_data.sh  20180110 20180120  # two params $1 $2 to load data from $1 to $2
+#   2. bash load_process_data.sh  20180110  # one param $1 to load certain date data
+#   3. bash load_process_data.sh  20180110 20180120  # two params $1 $2 to load data from $1 to $2
 
 set -e
 

@@ -7,11 +7,11 @@ import os
 import tensorflow as tf
 from PIL import Image
 
-inpath = '../../data/image/train'
-outpath = '../../data/image/train.tfrecords'
+inpath = '../../../data/image/train'
+outpath = '../../../data/image/train.tfrecords'
 
 
-def create_record():
+def create_record() -> None:
     writer = tf.python_io.TFRecordWriter(outpath)
     for img_name in os.listdir(inpath):
         img_path = os.path.join(inpath, img_name)
@@ -26,7 +26,7 @@ def create_record():
     writer.close()
 
 
-def input_fn():
+def input_fn() -> tf.Tensor:
     # Transforms a scalar string `example_proto` into a pair of a scalar string and
     # a scalar integer, representing an image and its label, respectively.
     def _parse_function(example_proto):
@@ -45,8 +45,8 @@ def input_fn():
 
 
 if __name__ == '__main__':
+    tf.compat.v1.enable_eager_execution()
     create_record()
     image = input_fn()
-    sess = tf.InteractiveSession()
-    print(sess.run(image))
+    print(image)
 

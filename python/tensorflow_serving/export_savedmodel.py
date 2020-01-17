@@ -13,8 +13,6 @@ To prepare a trained Estimator for serving, you must export it in the standard S
 
 https://www.tensorflow.org/programmers_guide/saved_model#using_savedmodel_with_estimators
 """
-from __future__ import print_function
-
 import os
 import sys
 
@@ -78,6 +76,7 @@ def main(_):
                             serving_input_receiver_fn,
                             as_text=CONF['as_text'],
                             checkpoint_path=FLAGS.checkpoint_path)
+
 
 if __name__ == '__main__':
     tf.app.run()

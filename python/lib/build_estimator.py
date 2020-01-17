@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/1/15
+# @Author: popfido
+# @Date  : 2020/1/14
 """
 Build feature columns using tf.feature_column API.
 Build estimator using tf.estimator API and custom API (defined in lib module)
 Use function `build_estimator` to use official classifier
 Use function `build_costum_estimator` to use custom classifier.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import json
 import os
+from typing import Callable
 
 import numpy as np
 import tensorflow as tf
@@ -24,7 +21,7 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PACKAGE_DIR)
 
 from lib.read_conf import Config
-from lib.utils.model_util import activation_fn
+from lib.utils.model_util import _get_activation_fn
 from lib.joint import WideAndDeepClassifier
 
 
@@ -54,11 +51,11 @@ def _build_model_columns():
     Return: 
         _CategoricalColumn and __DenseColumn instance in tf.feature_column API
     """
-    def embedding_dim(dim):
+    def embedding_dim(dim: int) -> int:
         """empirical embedding dim"""
         return int(np.power(2, np.ceil(np.log(dim**0.25))))
 
-    def normalizer_fn_builder(scaler, normalization_params):
+    def normalizer_fn_builder(scaler: str, normalization_params) -> Callable:
         """normalizer_fn builder"""
         if scaler == 'min_max':
             return lambda x: (x-normalization_params[0]) / (normalization_params[1]-normalization_params[0])
@@ -69,8 +66,8 @@ def _build_model_columns():
 
     feature_conf_dic = CONF.read_feature_conf()
     cross_feature_list = CONF.read_cross_feature_conf()
-    tf.logging.info('Total used feature class: {}'.format(len(feature_conf_dic)))
-    tf.logging.info('Total used cross feature class: {}'.format(len(cross_feature_list)))
+    tf.compat.v1.logging.info('Total used feature class: {}'.format(len(feature_conf_dic)))
+    tf.compat.v1.logging.info('Total used cross feature class: {}'.format(len(cross_feature_list)))
 
     wide_columns = []
     deep_columns = []
@@ -100,10 +97,10 @@ def _build_model_columns():
 
             elif f_tran == 'vocab':
                 col = categorical_column_with_vocabulary_list(feature,
-                    vocabulary_list=map(str, f_param),
+                    vocabulary_list=list(map(str, f_param)),
                     dtype=None,
                     default_value=-1,
-                    num_oov_buckets=0)  # len(vocab)+num_oov_buckets
+                    num_oov_buckets=0)  # len(vocab) + num_oov_buckets
                 wide_columns.append(col)
                 deep_columns.append(indicator_column(col))
                 wide_dim += len(f_param)
@@ -157,14 +154,14 @@ def _build_model_columns():
             deep_columns.append(embedding_column(col, dimension=embedding_dim(hash_bucket_size)))
             deep_dim += embedding_dim(hash_bucket_size)
     # add columns logging info
-    tf.logging.info('Build total {} wide columns'.format(len(wide_columns)))
+    tf.compat.v1.logging.info('Build total {} wide columns'.format(len(wide_columns)))
     for col in wide_columns:
-        tf.logging.debug('Wide columns: {}'.format(col))
-    tf.logging.info('Build total {} deep columns'.format(len(deep_columns)))
+        tf.compat.v1.logging.debug('Wide columns: {}'.format(col))
+    tf.compat.v1.logging.info('Build total {} deep columns'.format(len(deep_columns)))
     for col in deep_columns:
-        tf.logging.debug('Deep columns: {}'.format(col))
-    tf.logging.info('Wide input dimension is: {}'.format(wide_dim))
-    tf.logging.info('Deep input dimension is: {}'.format(deep_dim))
+        tf.compat.v1.logging.debug('Deep columns: {}'.format(col))
+    tf.compat.v1.logging.info('Wide input dimension is: {}'.format(wide_dim))
+    tf.compat.v1.logging.info('Deep input dimension is: {}'.format(deep_dim))
 
     return wide_columns, deep_columns
 
@@ -196,6 +193,7 @@ def _build_distribution():
             assert run_config.cluster_spec == {}
             assert run_config.task_type == 'evaluator'
             assert not run_config.is_chief
+        return run_config
 
 
 def build_estimator(model_dir, model_type):
@@ -211,7 +209,7 @@ def build_estimator(model_dir, model_type):
     # Create a tf.estimator.RunConfig to ensure the model is run on CPU, which
     # trains faster than GPU for this model.
     run_config = tf.estimator.RunConfig(**CONF.runconfig).replace(
-        session_config=tf.ConfigProto(device_count={'GPU': 0}))
+        session_config=tf.compat.v1.ConfigProto(device_count={'GPU': 0}))
 
     if model_type == 'wide':
         return tf.estimator.LinearClassifier(
@@ -229,11 +227,11 @@ def build_estimator(model_dir, model_type):
             model_dir=model_dir,
             feature_columns=deep_columns,
             hidden_units=CONF.model["dnn_hidden_units"],
-            optimizer=tf.train.ProximalAdagradOptimizer(
+            optimizer=tf.compat.v1.train.ProximalAdagradOptimizer(
                 learning_rate=0.1,
                 l1_regularization_strength=0.1,
                 l2_regularization_strength=0.1),  # {'Adagrad', 'Adam', 'Ftrl', 'RMSProp', 'SGD'}
-            activation_fn=activation_fn(CONF.model["dnn_activation_function"]),  # tf.nn.relu vs 'tf.nn.relu'
+            activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),  # tf.nn.relu vs 'tf.nn.relu'
             dropout=CONF.model["dnn_dropout"],
             weight_column=weight_column,
             input_layer_partitioner=None,
@@ -242,17 +240,17 @@ def build_estimator(model_dir, model_type):
         return tf.estimator.DNNLinearCombinedClassifier(
             model_dir=model_dir,  # self._model_dir = model_dir or self._config.model_dir
             linear_feature_columns=wide_columns,
-            linear_optimizer=tf.train.FtrlOptimizer(
+            linear_optimizer=tf.compat.v1.train.FtrlOptimizer(
                 learning_rate=0.1,
                 l1_regularization_strength=0.5,
                 l2_regularization_strength=1),
             dnn_feature_columns=deep_columns,
-            dnn_optimizer=tf.train.ProximalAdagradOptimizer(
+            dnn_optimizer=tf.compat.v1.train.ProximalAdagradOptimizer(
                 learning_rate=0.1,
                 l1_regularization_strength=0.1,
                 l2_regularization_strength=0.1),
             dnn_hidden_units=CONF.model["dnn_hidden_units"],
-            dnn_activation_fn=activation_fn(CONF.model["dnn_activation_function"]),
+            dnn_activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),
             dnn_dropout=CONF.model["dnn_dropout"],
             n_classes=2,
             weight_column=weight_column,
@@ -274,7 +272,7 @@ def build_custom_estimator(model_dir, model_type):
     # Create a tf.estimator.RunConfig to ensure the model is run on CPU, which
     # trains faster than GPU for this model.
     run_config = tf.estimator.RunConfig(**CONF.runconfig).replace(
-        session_config=tf.ConfigProto(device_count={'GPU': 0}))
+        session_config=tf.compat.v1.ConfigProto(device_count={'GPU': 0}))
 
     return WideAndDeepClassifier(
         model_type=model_type,
@@ -292,6 +290,7 @@ def build_custom_estimator(model_dir, model_type):
         label_vocabulary=None,
         input_layer_partitioner=None,
         config=run_config)
+
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.DEBUG)

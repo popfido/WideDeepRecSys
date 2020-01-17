@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/1/15
+# @Author: popfido
+# @Date  : 2019/1/14
 """Training Wide and Deep Model."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import argparse
 import os
@@ -108,6 +104,7 @@ def train_and_eval(model):
 
 def dynamic_train(model):
     """Dynamic train mode.
+
     For example: 
         train_data_files: [0301, 0302, 0303, ...]
         train mode:
@@ -173,7 +170,8 @@ def train_and_eval_api(model):
 def main(unused_argv):
     CONFIG = Config()
     print("Using TensorFlow Version %s" % tf.__version__)
-    assert "1.4" <= tf.__version__, "Need TensorFlow r1.4 or Later."
+    version = tf.__version__.split(".")
+    assert 1 == int(version[0]) and 14 <= int(version[1]), "Need TensorFlow r1.14 or Later."
     print('\nModel Type: {}'.format(FLAGS.model_type))
     model_dir = os.path.join(FLAGS.model_dir, FLAGS.model_type)
     print('\nModel Directory: {}'.format(model_dir))
@@ -189,8 +187,8 @@ def main(unused_argv):
         # Clean up the model directory if not keep training
         shutil.rmtree(model_dir, ignore_errors=True)
         print('Remove model directory: {}'.format(model_dir))
-    # model = build_estimator(model_dir, FLAGS.model_type)
-    model = build_custom_estimator(model_dir, FLAGS.model_type)
+    model = build_estimator(model_dir, FLAGS.model_type)
+    # model = build_custom_estimator(model_dir, FLAGS.model_type)
     tf.logging.info('Build estimator: {}'.format(model))
 
     if CONFIG.train['dynamic_train']:
@@ -248,6 +246,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
-    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
-    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    tf.compat.v1.app.run(main=main, argv=[sys.argv[0]] + unparsed)

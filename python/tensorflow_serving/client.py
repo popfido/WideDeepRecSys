@@ -7,9 +7,6 @@
 Typical usage example:
     client.py --num_tests=100 --server=localhost:9000
 """
-
-from __future__ import print_function
-
 from os.path import dirname, abspath, join
 import sys
 import threading

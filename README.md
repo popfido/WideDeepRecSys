@@ -1,18 +1,32 @@
 # Wide and Deep Learning for CTR Prediction in tensorflow
 ## Overview
+
+This is a forked self-maintained version of [Wide-Deep by Lapis-Hong](https://github.com/Lapis-Hong/wide_deep)
+
 A general **Wide and Deep Joint Learning** Framework. 
 Deep part can be a simple Dnn, Dnn Variants(ResDnn, DenseDnn), MultiDnn 
 or even combine with Cnn (Dnn-Cnn).
 
 
-Here, we use the [wide and deep model](https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html) to predict the click labels. The **wide model** is able to memorize interactions with data with a large number of features but not able to generalize these learned interactions on new data. The **deep model** generalizes well but is unable to learn exceptions within the data. The **wide and deep model** combines the two models and is able to generalize while learning exceptions.
+Here, the [wide and deep model](https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html) 
+is used to predict the click labels. 
+The **wide model** is able to memorize interactions with data with a large number of features 
+but not able to generalize these learned interactions on new data. The **deep model** generalizes 
+well but is unable to learn exceptions within the data. 
+The **wide and deep model** combines the two models and is able to generalize while learning exceptions.
 
-The code uses the high level `tf.estimator.Estimator` API. This API is great for fast iteration and quickly adapting models to your own datasets without major code overhauls. It allows you to move from single-worker training to distributed training, and it makes it easy to export model binaries for prediction.
+The code uses the high level `tf.estimator.Estimator` API. 
+This API is great for fast iteration and quickly adapting models to your own datasets without major code overhauls. 
+It allows you to move from single-worker training to distributed training, and it makes it easy to export model 
+binaries for prediction.
 
-The input function for the `Estimator` uses `tf.data.Dataset` API, which creates a `Dataset` object. The `Dataset` API makes it easy to apply transformations (map, batch, shuffle, etc.) to the data. [Read more here](https://www.tensorflow.org/programmers_guide/datasets).
+The input function for the `Estimator` uses `tf.data.Dataset` API, which creates a `Dataset` object. 
+The `Dataset` API makes it easy to apply transformations (map, batch, shuffle, etc.) to the data. 
+[Read more here](https://www.tensorflow.org/programmers_guide/datasets).
 
-The code is based on the TensorFlow wide and deep tutorial.
+The code is based on the [TensorFlow wide and deep tutorial](https://github.com/tensorflow/models/tree/master/official/r1/wide_deep).
 
+The Minimal required tensorflow version is r1.14 since I changed most of tensorflow api to tensorflow 2 compatible version.
 
 ## Extensions
 1. provide very flexible feature configuration and train configuration.
@@ -26,7 +40,16 @@ The code is based on the TensorFlow wide and deep tutorial.
 9. support weight column for imbalance sample.
 10. provide tensorflow serving for tf.estimator.
 11. provide scripts to do data proprocess using pyspark (generate continuous features from category features).
+12. Change api to compatible version between tensorflow 1 and 2.
 
+## Requirements
+
+- python >=3.5
+- tensorflow >=1.14
+- tensorflow-serving-api
+- numpy
+- yaml
+- PIL
 
 ## Running the code
 ### Setup
@@ -74,6 +97,3 @@ Run TensorBoard to inspect the details about the graph and training progression.
 ```
 tensorboard --logdir=./model/wide_deep
 ```
-
-
-

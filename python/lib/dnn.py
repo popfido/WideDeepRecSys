@@ -1,17 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/2/9
+# @Author: popfido
+# @Date  : 2020/1/15
 """This module is based on tf.estimator.DNNClassifier.
 Dnn logits builder. 
 Extend dnn architecture, add BN layer, add Regularization, add activation function options, add arbitrary connections between layers.
 Extend dnn to multi joint dnn.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import six
 import tensorflow as tf
 from tensorflow.python.estimator.canned import head as head_lib
 
@@ -21,10 +16,10 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PACKAGE_DIR)
 
 from lib.read_conf import Config
-from lib.utils.model_util import add_layer_summary, get_optimizer_instance, activation_fn
+from lib.utils.model_util import add_layer_summary, _get_optimizer_instance, _get_activation_fn
 
 CONF = Config().model
-ACTIVATION_FN = activation_fn(CONF['dnn_activation_function'])
+ACTIVATION_FN = _get_activation_fn(CONF['dnn_activation_function'])
 DROPOUT = CONF['dnn_dropout']
 BATCH_NORM = CONF['dnn_batch_normalization']
 DNN_L1 = CONF['dnn_l1']
@@ -40,9 +35,18 @@ else:
     REG = tf.contrib.layers.sum_regularizer(regularizer_list)
 
 
-def _dnn_logit_fn(features, mode, model_id, units,
-                  hidden_units, connected_mode, feature_columns, input_layer_partitioner):
+def _dnn_logit_fn(
+    features,
+    mode,
+    model_id,
+    units,
+    hidden_units,
+    connected_mode,
+    feature_columns,
+    input_layer_partitioner
+):
     """Deep Neural Network logit_fn.
+
     Args:
         features: This is the first item returned from the `input_fn`
             passed to `train`, `evaluate`, and `predict`. This should be a
@@ -68,9 +72,11 @@ def _dnn_logit_fn(features, mode, model_id, units,
         dropout: When not `None`, the probability we will drop out a given coordinate.
         batch_norm: Bool, Whether to use BN in dnn.
         input_layer_partitioner: Partitioner for input layer.
+
     Returns:
         A `Tensor` representing the logits, or a list of `Tensor`'s representing
-      multiple logits in the MultiHead case.
+        multiple logits in the MultiHead case.
+
     Raises:
         AssertError: If connected_mode is string, but not one of `simple`, `first_dense`, `last_dense`, 
             `dense` or `resnet`
@@ -82,7 +88,7 @@ def _dnn_logit_fn(features, mode, model_id, units,
         )
     with tf.variable_scope(
             'input_from_feature_columns',
-            values=tuple(six.itervalues(features)),
+            values=tuple(iter(features.values())),
             partitioner=input_layer_partitioner,
             reuse=tf.AUTO_REUSE):
         net = tf.feature_column.input_layer(
@@ -237,7 +243,9 @@ def _dnn_logit_fn(features, mode, model_id, units,
 def multidnn_logit_fn_builder(units, hidden_units_list,
                               connected_mode_list, feature_columns, input_layer_partitioner):
     """Multi dnn logit function builder.
+
     Args:
+        units:
         hidden_units_list: 1D iterable list for single dnn or 2D for multi dnn.
             if use single format, default to use same hidden_units in all multi dnn.
             eg: [128, 64, 32] or [[128, 64, 32], [64, 32]]
@@ -245,6 +253,9 @@ def multidnn_logit_fn_builder(units, hidden_units_list,
             consistent with above hidden_units_list. 
             if use single format, default to use same connected_mode in all multi dnn.
             eg: `simple` or [`simple`, `first_dense`] or [0-1, 0-3] or [[0-1, 0-3], [0-1]]
+        feature_columns:
+        input_layer_partitioner:
+
     Returns:
         multidnn logit fn.
     """
@@ -310,6 +321,7 @@ class MultiDNNClassifier(tf.estimator.Estimator):
                input_layer_partitioner=None,
                config=None):
         """Initializes a `DNNClassifier` instance.
+
             Args:
                feature_columns: An iterable containing all the feature columns used by
                  the model. All items in the set should be instances of classes derived
@@ -362,6 +374,7 @@ class MultiDNNClassifier(tf.estimator.Estimator):
             features, labels, mode, head,
             optimizer='Adagrad', input_layer_partitioner=None, config=None):
             """Deep Neural Net model_fn.
+
             Args:
               features: dict of `Tensor`.
               labels: `Tensor` of shape [batch_size, 1] or [batch_size] labels of
@@ -390,7 +403,7 @@ class MultiDNNClassifier(tf.estimator.Estimator):
             if not isinstance(features, dict):
                 raise ValueError('features should be a dictionary of `Tensor`s. '
                              'Given type: {}'.format(type(features)))
-            optimizer = get_optimizer_instance(
+            optimizer = _get_optimizer_instance(
                 optimizer, learning_rate=0.05)
             num_ps_replicas = config.num_ps_replicas if config else 0
 
@@ -452,4 +465,4 @@ if __name__ == '__main__':
         model_collections=(dnn_1, dnn_2, dnn_3),
         feature_columns="deep_columns")
 
-
+    print(multi_dnn)

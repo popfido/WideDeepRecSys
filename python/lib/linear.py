@@ -10,19 +10,23 @@ import tensorflow as tf
 
 def linear_logit_fn_builder(units, feature_columns):
     """Function builder for a linear logit_fn.
+
     Args:
       units: An int indicating the dimension of the logit layer.
       feature_columns: An iterable containing all the feature columns used by the model.
+
     Returns:
       A logit_fn (see below).
     """
 
     def linear_logit_fn(features):
         """Linear model logit_fn.
+
         Args:
           features: This is the first item returned from the `input_fn`
                 passed to `train`, `evaluate`, and `predict`. This should be a
                 single `Tensor` or `dict` of same.
+
         Returns:
           A `Tensor` representing the logits.
         """

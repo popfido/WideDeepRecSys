@@ -2,7 +2,7 @@
 # The script train the model.
 # Usage:
 #		1. bash train.sh  # default to train all 3 type model
-#       2. bash train.sh  $model_name  # explict model name to train that type model.
+#   2. bash train.sh  $model_name  # explict model name to train that type model.
 
 set -e
 

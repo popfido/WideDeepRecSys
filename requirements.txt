@@ -1,6 +1,6 @@
-tensorflow >=1.4
+tensorflow >=1.14
 tensorflow-serving-api
 numpy
 yaml
 PIL
-six
+absl-py

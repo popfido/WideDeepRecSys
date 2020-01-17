@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/2/2
+# @Author: popfido
+# @Date  : 2020/1/15
 """Provide some utility function."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import time
 import os
 from collections import OrderedDict
 from functools import wraps
+from typing import List
 
 import tensorflow as tf
 
 
-def timer(info=''):
+def timer(info: str = ''):
     """parameter decarotor"""
     def _timer(func):
         @wraps(func)
@@ -29,11 +26,11 @@ def timer(info=''):
     return _timer
 
 
-def elapse_time(start_time):
+def elapse_time(start_time) -> int:
     return round((time.time()-start_time) / 60)
 
 
-def list_files(input_data):
+def list_files(input_data) -> List[str]:
     """if input file is a dir, convert to a file path list
     Return:
          file path list

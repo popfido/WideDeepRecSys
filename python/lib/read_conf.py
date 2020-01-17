@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author: lapis-hong
-# @Date  : 2018/1/24
+# @Author: popfido
+# @Date  : 2020/1/14
 """Read All Configuration from wide_deep/conf/*.yaml"""
 import os
 import yaml
 
 from os.path import dirname, abspath
+from typing import Union, Hashable, Any, Dict, List, Iterable, Tuple
 
 BASE_DIR = os.path.join(dirname(dirname(dirname(abspath(__file__)))), 'conf')
 SCHEMA_CONF_FILE = 'schema.yaml'
@@ -40,7 +41,7 @@ class Config(object):
 
     def read_schema(self):
         with open(self._schema_conf_file) as f:
-            return {k: v.lower() for k, v in yaml.load(f).items()}
+            return {k: v.lower() for k, v in yaml.load(f, Loader=yaml.FullLoader).items()}
 
     def read_data_process_conf(self):
         with open(self._data_process_conf_file) as f:
@@ -96,8 +97,8 @@ class Config(object):
                         raise TypeError('Invalid normalization parameter `{}` for feature `{}` in feature conf, '
                                         'parameter mean must be int or float.'.format(mean, feature))
                     if not isinstance(std, (float, int)) or std <= 0:
-                            raise TypeError('Invalid normalization parameter `{}` for feature `{}` in feature conf, '
-                                            'parameter std must be a positive number.'.format(std, feature))
+                        raise TypeError('Invalid normalization parameter `{}` for feature `{}` in feature conf, '
+                                        'parameter std must be a positive number.'.format(std, feature))
             if boundaries:
                 if not isinstance(boundaries, (tuple, list)):
                     raise TypeError('Invalid parameter `{}` for feature `{}` in feature conf, '
@@ -109,7 +110,7 @@ class Config(object):
                             "discretize parameter element must be integer or float.".format(boundaries, feature)
 
     @staticmethod
-    def _check_cross_feature_conf(features, feature_conf, **kwargs):
+    def _check_cross_feature_conf(features, feature_conf, **kwargs) -> None:
         features_list = [f.strip() for f in features.split('&')]
         hash_bucket_size = kwargs["hash_bucket_size"]
         is_deep = kwargs["is_deep"]
@@ -132,17 +133,17 @@ class Config(object):
                 'Invalid is_deep `{}` for features `{}`, ' 
                 'expected 0 or 1.'.format(is_deep, features))
 
-    def read_feature_conf(self):
-        with open(self._feature_conf_file) as f:
-            feature_conf = yaml.load(f)
+    def read_feature_conf(self) -> Union[Dict[Hashable, Any], None]:
+        with open(self._feature_conf_file, encoding="utf-8") as f:
+            feature_conf = yaml.load(f, Loader=yaml.FullLoader)
             valid_feature_name = self.read_schema().values()
             for feature, conf in feature_conf.items():
                 self._check_feature_conf(feature.lower(), valid_feature_name, **conf)
             return feature_conf
 
-    def read_cross_feature_conf(self):
-        with open(self._cross_feature_conf_file) as f:
-            cross_feature_conf = yaml.load(f)
+    def read_cross_feature_conf(self) -> List[Tuple[List[str], int, int]]:
+        with open(self._cross_feature_conf_file, encoding="utf-8") as f:
+            cross_feature_conf = yaml.load(f, Loader=yaml.FullLoader)
             conf_list = []
             feature_conf = self.read_feature_conf()  # used features
             for features, conf in cross_feature_conf.items():
@@ -154,27 +155,27 @@ class Config(object):
             return conf_list
 
     @staticmethod
-    def _check_numeric(key, value):
+    def _check_numeric(key: Hashable, value: Any):
         if not isinstance(value, (int, float)):
             raise ValueError('Numeric type is required for key `{}`, found `{}`.'.format(key, value))
 
     @staticmethod
-    def _check_string(key, value):
-        if not isinstance(value, (str, unicode)):
+    def _check_string(key: Hashable, value: Any):
+        if not isinstance(value, str):
             raise ValueError('String type is required for key `{}`, found `{}`.'.format(key, value))
 
     @staticmethod
-    def _check_bool(key, value):
+    def _check_bool(key: Hashable, value: Any):
         if value not in {True, False, 1, 0}:
             raise ValueError('Bool type is required for key `{}`, found `{}`.'.format(key, value))
 
     @staticmethod
-    def _check_list(key, value):
+    def _check_list(key: Hashable, value: Any):
         if not isinstance(value, (list, tuple)):
             raise ValueError('List type is required for key `{}`, found `{}`.'.format(key, value))
 
     @staticmethod
-    def _check_required(key, value):
+    def _check_required(key: Hashable, value: Any):
         if value is None:
             raise ValueError('Required type for key `{}`, found None.'.format(key))
 
@@ -189,8 +190,8 @@ class Config(object):
         opt_bool_keys = ['dnn_batch_normalization', 'cnn_use_flag']
         #
         req_list_keys = ['dnn_hidden_units']
-        with open(self._model_conf_file) as f:
-            model_conf = yaml.load(f)
+        with open(self._model_conf_file, encoding="utf-8") as f:
+            model_conf = yaml.load(f, Loader=yaml.FullLoader)
             for k, v in model_conf.items():
                 if k in req_str_keys:
                     self._check_required(k, v)
@@ -206,13 +207,13 @@ class Config(object):
                     self._check_list(k, v)
             return model_conf
 
-    def _read_train_conf(self):
+    def _read_train_conf(self) -> Union[Dict[Hashable, Any], None]:
         req_str_keys = ['model_dir', 'model_type', 'train_data', 'test_data']
         req_num_keys = ['train_epochs', 'epochs_per_eval', 'batch_size', 'num_examples']
         opt_num_keys = ['pos_sample_loss_weight', 'neg_sample_loss_weight', 'num_parallel_calls']
         req_bool_key = ['keep_train', 'multivalue', 'dynamic_train']
-        with open(self._train_conf_file) as f:
-            train_conf = yaml.load(f)
+        with open(self._train_conf_file, encoding="utf-8") as f:
+            train_conf = yaml.load(f, Loader=yaml.FullLoader)
             for k, v in train_conf['train'].items():
                 if k in req_str_keys:
                     self._check_required(k, v)
@@ -228,47 +229,47 @@ class Config(object):
                     self._check_bool(k, v)
             return train_conf
 
-    def _read_serving_conf(self):
+    def _read_serving_conf(self) -> Union[Dict[Hashable, Any], None]:
         with open(self._serving_conf_file) as f:
-            return yaml.load(f)
+            return yaml.load(f, Loader=yaml.FullLoader)
 
     @property
-    def config(self):
+    def config(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_train_conf()
 
     @property
-    def train(self):
+    def train(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_train_conf()["train"]
 
     @property
-    def distribution(self):
+    def distribution(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_train_conf()["distribution"]
 
     @property
-    def runconfig(self):
+    def runconfig(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_train_conf()["runconfig"]
 
     @property
-    def model(self):
+    def model(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_model_conf()
 
     @property
-    def serving(self):
+    def serving(self) -> Union[Dict[Hashable, Any], None]:
         return self._read_serving_conf()
 
-    def get_feature_name(self, feature_type='all'):
+    def get_feature_name(self, feature_type='all') -> Iterable[Hashable]:
         """
         Args:
-         feature_type: one of {'all', 'used', 'category', 'continuous'}
+            feature_type: one of {'all', 'used', 'category', 'continuous'}
         Return: feature name list
         """
         feature_conf_dic = self.read_feature_conf()
-        feature_list = self.read_schema().values()
+        feature_list = [val for val in iter(self.read_schema().values())]
         feature_list.remove('clk')
         if feature_type == 'all':
             return feature_list
         elif feature_type == 'used':
-            return feature_conf_dic.keys()
+            return [key for key in iter(feature_conf_dic.keys())]
         elif feature_type == 'unused':
             return set(feature_list) - set(feature_conf_dic.keys())
         elif feature_type == 'category':
@@ -282,11 +283,8 @@ class Config(object):
 def _test():
     config = Config()
     """test for Config methods"""
-    print('\nTrain config:')
-    print(config.config)
-    print(config.train)
-    print(config.runconfig)
-    print(config.train["model_dir"])
+    print('\nTrain config: \n {} \n {} \n {}'.format(config.config, config.train, config.runconfig))
+    print('Model Directory: {}'.format(config.train["model_dir"]))
 
     print('\nModel conf:')
     for k, v in config.model.items():
@@ -303,16 +301,11 @@ def _test():
         print(f)
 
     category_feature = config.get_feature_name('category')
-    print('\nCategory feature:')
-    print(category_feature)
+    print('\nCategory feature: {}'.format(category_feature))
 
     members = [m for m in Config.__dict__ if not m.startswith('_')]
-    print('\nConfig class members:')
-    print(members)
+    print('\nConfig class members: {}'.format(members))
+
 
 if __name__ == '__main__':
     _test()
-
-
-
-

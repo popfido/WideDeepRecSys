@@ -3,11 +3,6 @@
 # @Author: lapis-hong
 # @Date  : 2018/1/15
 """Wide and Deep Model Evaluation"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import argparse
 import os
 import sys
@@ -55,7 +50,8 @@ parser.add_argument(
 
 def main(unused_argv):
     print("Using TensorFlow version %s" % tf.__version__)
-    assert "1.4" <= tf.__version__, "TensorFlow r1.4 or later is needed"
+    version = tf.__version__.split(".")
+    assert 1 == int(version[0]) and 14 <= int(version[1]), "Need TensorFlow r1.14 or Later."
     # if FLAGS.is_distribution:
     #     print("Using distribution tensoflow. Job_name:{} Task_index:{}"
     #           .format(CONFIG.distribution["job_name"], CONFIG.distribution["task_index"]))
@@ -81,6 +77,7 @@ def main(unused_argv):
     print('-' * 80)
     for key in sorted(results):
         print('%s: %s' % (key, results[key]))
+
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
