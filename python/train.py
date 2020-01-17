@@ -246,6 +246,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
-    tf.compat.v1.logging.set_verbosity(tf.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
     tf.compat.v1.app.run(main=main, argv=[sys.argv[0]] + unparsed)

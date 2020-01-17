@@ -24,14 +24,13 @@ from lib.read_conf import Config
 from lib.utils.model_util import _get_activation_fn
 from lib.joint import WideAndDeepClassifier
 
-
-# wide columns
+# accepted wide column types
 categorical_column_with_identity = tf.feature_column.categorical_column_with_identity
 categorical_column_with_hash_bucket = tf.feature_column.categorical_column_with_hash_bucket
 categorical_column_with_vocabulary_list = tf.feature_column.categorical_column_with_vocabulary_list
 crossed_column = tf.feature_column.crossed_column
 bucketized_column = tf.feature_column.bucketized_column
-# deep columns
+# accepted deep column types
 embedding_column = tf.feature_column.embedding_column
 indicator_column = tf.feature_column.indicator_column
 numeric_column = tf.feature_column.numeric_column
@@ -144,7 +143,7 @@ def _build_model_columns():
                 if f_tran == 'identity':
                     # If an input feature is of numeric type, you can use categorical_column_with_identity
                     cf_list.append(categorical_column_with_identity(f, num_buckets=f_param,
-                    default_value=0))
+                        default_value=0))
                 else:
                     cf_list.append(f)  # category col put the name in crossed_column
         col = crossed_column(cf_list, hash_bucket_size)

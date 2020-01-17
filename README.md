@@ -39,8 +39,7 @@ The Minimal required tensorflow version is r1.14 since I changed most of tensorf
 8. support 3 types normalization for continuous features.
 9. support weight column for imbalance sample.
 10. provide tensorflow serving for tf.estimator.
-11. provide scripts to do data proprocess using pyspark (generate continuous features from category features).
-12. Compatible version between tensorflow 1 and 2.
+11. Compatible version between tensorflow 1 and 2.
 
 ## Requirements
 
