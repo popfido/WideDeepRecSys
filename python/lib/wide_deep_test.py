@@ -49,7 +49,7 @@ class BaseTest(tf.test.TestCase):
             self.assertEqual(len(features[KEY][0]), len(TEST_INPUT[KEY]))
 
             feature_values = features[KEY][0].numpy()
-            logging.info(KEY, TEST_INPUT[KEY], feature_values)
+            print(KEY, TEST_INPUT[KEY], feature_values)
             # Convert from bytes to string for Python 3.
             for i in range(len(TEST_INPUT[KEY])):
                 feature_value = feature_values[i]
@@ -99,5 +99,5 @@ class BaseTest(tf.test.TestCase):
 
 if __name__ == '__main__':
     logging.set_verbosity(logging.DEBUG)
-    tf.logging.set_verbosity(tf.logging.DEBUG)
+    tf.compat.v1.logging.set_verbosity(tf.logging.DEBUG)
     tf.test.main()

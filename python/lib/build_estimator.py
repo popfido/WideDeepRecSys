@@ -6,7 +6,7 @@
 Build feature columns using tf.feature_column API.
 Build estimator using tf.estimator API and custom API (defined in lib module)
 Use function `build_estimator` to use official classifier
-Use function `build_costum_estimator` to use custom classifier.
+Use function `build_custum_estimator` to use custom classifier.
 """
 import json
 import os
@@ -50,7 +50,7 @@ def _build_model_columns():
     Return: 
         _CategoricalColumn and __DenseColumn instance in tf.feature_column API
     """
-    def embedding_dim(dim: int) -> int:
+    def _embedding_dim(dim: int) -> int:
         """empirical embedding dim"""
         return int(np.power(2, np.ceil(np.log(dim**0.25))))
 
@@ -78,7 +78,7 @@ def _build_model_columns():
 
             if f_tran == 'hash_bucket':
                 hash_bucket_size = f_param
-                embed_dim = embedding_dim(hash_bucket_size)
+                embed_dim = _embedding_dim(hash_bucket_size)
                 col = categorical_column_with_hash_bucket(feature,
                     hash_bucket_size=hash_bucket_size,
                     dtype=tf.string)
@@ -150,8 +150,8 @@ def _build_model_columns():
         wide_columns.append(col)
         wide_dim += hash_bucket_size
         if is_deep:
-            deep_columns.append(embedding_column(col, dimension=embedding_dim(hash_bucket_size)))
-            deep_dim += embedding_dim(hash_bucket_size)
+            deep_columns.append(embedding_column(col, dimension=_embedding_dim(hash_bucket_size)))
+            deep_dim += _embedding_dim(hash_bucket_size)
     # add columns logging info
     tf.compat.v1.logging.info('Build total {} wide columns'.format(len(wide_columns)))
     for col in wide_columns:
