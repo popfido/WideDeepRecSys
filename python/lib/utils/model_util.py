@@ -10,13 +10,13 @@ from typing import Callable, Optional
 
 # Methods related to optimizers used in canned_estimators."""
 _OPTIMIZER_CLS_NAMES = dict(
-  adadelta=tf.train.AdadeltaOptimizer,
-  adagrad=tf.train.AdagradOptimizer,
-  adam=tf.train.AdamOptimizer,
-  ftrl=tf.train.FtrlOptimizer,
-  momentum=tf.train.MomentumOptimizer,
-  rmsprop=tf.train.RMSPropOptimizer,
-  sgd=tf.train.GradientDescentOptimizer,
+  Adadelta=tf.train.AdadeltaOptimizer,
+  Adagrad=tf.train.AdagradOptimizer,
+  Adam=tf.train.AdamOptimizer,
+  Ftrl=tf.train.FtrlOptimizer,
+  Momentum=tf.train.MomentumOptimizer,
+  RMSProp=tf.train.RMSPropOptimizer,
+  SGD=tf.train.GradientDescentOptimizer,
 )
 
 _ACTIVATION_FN_NAMES = dict(
@@ -112,18 +112,17 @@ def _get_optimizer_instance(
         ValueError: If `opt` is none of the above types.
     """
     if isinstance(opt, str):
-        opt = opt.lower()
         if opt in _OPTIMIZER_CLS_NAMES.keys():
             params = {}
             name = _OPTIMIZER_CLS_NAMES[opt]
-            if name == "ftrl":
+            if name == "Ftrl":
                 params["l1_regularization_strength"] = kwargs.get(
                     "l1_regularization_strength", 0.0
                 )
                 params["l2_regularization_strength"] = kwargs.get(
                     "l2_regularization_strength", 0.0
                 )
-            elif name == "momentum" or name == "rmsprop":
+            elif name == "Momentum" or name == "RMSProp":
                 params["momentum"] = kwargs.get("momentum", 0.0)
 
             if learning_rate is None:
