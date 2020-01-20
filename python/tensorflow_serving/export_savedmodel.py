@@ -21,7 +21,7 @@ import tensorflow as tf
 PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PACKAGE_DIR)
 
-from lib.build_estimator import _build_model_columns, build_custom_estimator
+from lib.build_estimator import _build_model_columns, build_estimator, build_custom_estimator
 from lib.read_conf import Config
 
 model_base_dir = Config().train['model_dir']
@@ -71,7 +71,7 @@ def main(_):
 
     model_dir = os.path.join(model_base_dir, FLAGS.model_type)
     export_dir = os.path.join(FLAGS.export_dir, FLAGS.model_type)
-    model = build_custom_estimator(model_dir, FLAGS.model_type)
+    model = build_estimator(model_dir, FLAGS.model_type)
     model.export_savedmodel(export_dir,
                             serving_input_receiver_fn,
                             as_text=CONF['as_text'],
