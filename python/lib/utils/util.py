@@ -35,8 +35,8 @@ def list_files(input_data) -> List[str]:
     Return:
          file path list
     """
-    if tf.gfile.IsDirectory(input_data):
-        file_name = [f for f in tf.gfile.ListDirectory(input_data) if not f.startswith('.')]
+    if tf.io.gfile.isdir(input_data):
+        file_name = [f for f in tf.io.gfile.listdir(input_data) if not f.startswith('.')]
         return [input_data + '/' + f for f in file_name]
     else:
         return [input_data]

@@ -21,7 +21,7 @@ PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PACKAGE_DIR)
 
 from lib.read_conf import Config
-from lib.utils.model_util import _get_activation_fn
+from lib.utils.model_util import _get_activation_fn, _get_optimizer_instance
 from lib.joint import WideAndDeepClassifier
 
 # accepted wide column types
@@ -215,46 +215,41 @@ def build_estimator(model_dir, model_type):
             model_dir=model_dir,
             feature_columns=wide_columns,
             weight_column=weight_column,
-            optimizer=tf.train.FtrlOptimizer(  # can not read from conf
-                learning_rate=0.1,
-                l1_regularization_strength=0.5,
-                l2_regularization_strength=1),
-            partitioner=None,
+            optimizer=CONF.model["linear_optimizer"],
             config=run_config)
     elif model_type == 'deep':
         return tf.estimator.DNNClassifier(
             model_dir=model_dir,
             feature_columns=deep_columns,
             hidden_units=CONF.model["dnn_hidden_units"],
-            optimizer=tf.compat.v1.train.ProximalAdagradOptimizer(
-                learning_rate=0.1,
-                l1_regularization_strength=0.1,
-                l2_regularization_strength=0.1),  # {'Adagrad', 'Adam', 'Ftrl', 'RMSProp', 'SGD'}
+            optimizer=_get_optimizer_instance(CONF.model["dnn_optimizer"],
+                learning_rate=CONF.model["dnn_initial_learning_rate"],
+                l1_regularization_strength=CONF.model["dnn_l1"],
+                l2_regularization_strength=CONF.model["dnn_l2"]),  # {'Adagrad', 'Adam', 'Ftrl', 'RMSProp', 'SGD'}
             activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),  # tf.nn.relu vs 'tf.nn.relu'
             dropout=CONF.model["dnn_dropout"],
             weight_column=weight_column,
-            input_layer_partitioner=None,
             config=run_config)
     else:
         return tf.estimator.DNNLinearCombinedClassifier(
             model_dir=model_dir,  # self._model_dir = model_dir or self._config.model_dir
             linear_feature_columns=wide_columns,
-            linear_optimizer=tf.compat.v1.train.FtrlOptimizer(
-                learning_rate=0.1,
-                l1_regularization_strength=0.5,
-                l2_regularization_strength=1),
+            linear_optimizer=_get_optimizer_instance(CONF.model["linear_optimizer"],
+                learning_rate=CONF.model['linear_initial_learning_rate'],
+                l1_regularization_strength=CONF.model['linear_l1'],
+                l2_regularization_strength=CONF.model['linear_l2']),
             dnn_feature_columns=deep_columns,
-            dnn_optimizer=tf.compat.v1.train.ProximalAdagradOptimizer(
-                learning_rate=0.1,
-                l1_regularization_strength=0.1,
-                l2_regularization_strength=0.1),
+            dnn_optimizer=_get_optimizer_instance(CONF.model["dnn_optimizer"],
+                learning_rate=CONF.model["dnn_initial_learning_rate"],
+                l1_regularization_strength=CONF.model["dnn_l1"],
+                l2_regularization_strength=CONF.model["dnn_l2"]),
             dnn_hidden_units=CONF.model["dnn_hidden_units"],
             dnn_activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),
             dnn_dropout=CONF.model["dnn_dropout"],
             n_classes=2,
             weight_column=weight_column,
             label_vocabulary=None,
-            input_layer_partitioner=None,
+            batch_norm=CONF.model['dnn_batch_normalization'],
             config=run_config)
 
 

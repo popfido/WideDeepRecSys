@@ -153,7 +153,7 @@ class _CsvDataset(_CTRDataset):
                     if isinstance(csv_defaults[f][0], str):
                         # input must be rank 1, return SparseTensor
                         # print(st.values)  # <tf.Tensor 'StringSplit_11:1' shape=(?,) dtype=string>
-                        features[f] = tf.string_split([tensor], multivalue_delim).values  # tensor shape (?,)
+                        features[f] = tf.strings.split([tensor], multivalue_delim).values  # tensor shape (?,)
                     else:
                         features[f] = tf.expand_dims(tensor, 0)  # change shape from () to (1,)
             if is_pred:
@@ -228,13 +228,13 @@ class _ImageDataSet(_CTRDataset):
             feature dict {'image': Tensor}
         """
         assert preprocess in {'custom', 'vgg'}, 'Invalid preprocess parameters {}, must be `custom` or `vgg`'.format(preprocess)
-        features = tf.parse_single_example(
+        features = tf.io.parse_single_example(
             serialized_example,
                 features={
                     'image': tf.FixedLenFeature([], tf.string),
                     # 'label': tf.FixedLenFeature([], tf.int64),
                     })
-        image = tf.decode_raw(features['image'], tf.uint8)
+        image = tf.io.decode_raw(features['image'], tf.uint8)
         image.set_shape([self._num_channels * self._height * self._width])
         # Reshape from [depth * height * width] to [depth, height, width].
         image = tf.cast(
@@ -283,7 +283,7 @@ class _ImageDataSet(_CTRDataset):
         # if is_training:
         #     dataset = dataset.shuffle(buffer_size=100)
         # dataset = dataset.flat_map(tf.data.TFRecordDataset)
-        tf.logging.info('Parsing input image data files: {}'.format(self._data_file))
+        tf.compat.v1.logging.info('Parsing input image data files: {}'.format(self._data_file))
         dataset = tf.data.TFRecordDataset(self._data_file)
         dataset = dataset.map(lambda value: self.parse_example(value, mode == 'train'))
         dataset = dataset.prefetch(2*batch_size)
@@ -320,7 +320,7 @@ def input_fn(csv_data_file, img_data_file, mode, batch_size):
 
 def _input_tensor_test(data_file, batch_size=5):
     """test for categorical_column and cross_column input."""
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
     features, labels = _CsvDataset(data_file).input_fn('train', batch_size=batch_size)
     # categorical_column* can handle multivalue feature as a multihot
     ucomp = tf.feature_column.categorical_column_with_hash_bucket('ucomp', 10)
@@ -347,7 +347,6 @@ if __name__ == '__main__':
     csv_path = '../../data/train/train1'
     img_path = '../../data/image/train.tfrecords'
     _input_tensor_test(csv_path)
-    sess = tf.InteractiveSession()
     data = input_fn(csv_path, None, 'train', 5)
     print(data)
 

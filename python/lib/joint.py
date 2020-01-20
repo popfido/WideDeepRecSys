@@ -22,7 +22,10 @@ Currently extensions:
     3. add Cnn as deep part 
 """
 import tensorflow as tf
-from tensorflow.python.estimator.canned import head as head_lib
+from tensorflow_estimator.python.estimator.canned import head as head_lib
+from tensorflow_estimator.python.estimator.mode_keys import ModeKeys
+from tensorflow.python.ops.losses import losses
+from tensorflow.python.ops import partitioned_variables
 
 import os
 import sys
@@ -75,7 +78,10 @@ decay_steps = _num_examples / _batch_size
 
 
 def _wide_deep_combined_model_fn(
-        features, labels, mode, head,
+        features,
+        labels,
+        mode,
+        head,
         model_type: str,
         with_cnn: bool = False,
         cnn_optimizer: str = 'Adagrad',
@@ -138,8 +144,11 @@ def _wide_deep_combined_model_fn(
             raise ValueError('No input image features, must provide image features if use cnn.')
     num_ps_replicas = config.num_ps_replicas if config else 0
     input_layer_partitioner = input_layer_partitioner or (
-        tf.min_max_variable_partitioner(max_partitions=num_ps_replicas,
-                                        min_slice_size=64 << 20))
+        partitioned_variables.min_max_variable_partitioner(
+            max_partitions=num_ps_replicas,
+            min_slice_size=64 << 20
+        )
+    )
     # weight decay lr
     global_step = tf.Variable(0)
     _LINEAR_LEARNING_RATE = tf.train.exponential_decay(
@@ -157,11 +166,18 @@ def _wide_deep_combined_model_fn(
     if model_type == 'wide' or not dnn_feature_columns:
         dnn_logits = None
     else:
-        dnn_optimizer = _get_optimizer_instance(
-            dnn_optimizer, learning_rate=_DNN_LEARNING_RATE)
-        if model_type == 'wide_deep':
-            check_no_sync_replicas_optimizer(dnn_optimizer)
+        if mode == ModeKeys.TRAIN:
+            dnn_optimizer = _get_optimizer_instance(
+                dnn_optimizer,
+                learning_rate=_DNN_LEARNING_RATE)
+            if model_type == 'wide_deep':
+                check_no_sync_replicas_optimizer(dnn_optimizer)
         dnn_partitioner = tf.min_max_variable_partitioner(max_partitions=num_ps_replicas)
+        if not dnn_hidden_units:
+            raise ValueError(
+                'dnn_hidden_units must be defined when dnn_feature_columns is '
+                'specified.')
+
         with tf.variable_scope(
                 dnn_parent_scope,
                 values=tuple(iter(features.values())),
@@ -180,9 +196,12 @@ def _wide_deep_combined_model_fn(
     if model_type == 'deep' or not linear_feature_columns:
         linear_logits = None
     else:
-        linear_optimizer = _get_optimizer_instance(linear_optimizer,
-                                                   learning_rate=_LINEAR_LEARNING_RATE)
-        check_no_sync_replicas_optimizer(linear_optimizer)
+        if mode == ModeKeys.TRAIN:
+            linear_optimizer = _get_optimizer_instance(
+                linear_optimizer,
+                learning_rate=_LINEAR_LEARNING_RATE)
+            if model_type == 'wide_deep':
+                check_no_sync_replicas_optimizer(linear_optimizer)
         with tf.variable_scope(
                 linear_parent_scope,
                 values=tuple(iter(features.values())),
@@ -337,6 +356,7 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
                  weight_column=None,
                  label_vocabulary=None,
                  input_layer_partitioner=None,
+                 loss_reduction=losses.Reduction.SUM,
                  config=None):
         """Initializes a WideDeepCombinedClassifier instance.
 
@@ -400,17 +420,8 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
         if dnn_feature_columns and not dnn_hidden_units:
             raise ValueError('dnn_hidden_units must be defined when dnn_feature_columns is specified.')
 
-        if n_classes == 2:
-            # units = 1
-            head = head_lib._binary_logistic_head_with_sigmoid_cross_entropy_loss(
-                weight_column=weight_column,
-                label_vocabulary=label_vocabulary)
-        else:
-            # units = n_classes
-            head = head_lib._multi_class_head_with_softmax_cross_entropy_loss(
-                n_classes,
-                weight_column=weight_column,
-                label_vocabulary=label_vocabulary)
+        head = head_lib._binary_logistic_or_multi_class_head(  # pylint: disable=protected-access
+            n_classes, weight_column, label_vocabulary, loss_reduction)
 
         def _model_fn(features, labels, mode, config):
             return _wide_deep_combined_model_fn(

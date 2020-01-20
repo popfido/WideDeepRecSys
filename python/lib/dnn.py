@@ -8,7 +8,10 @@ Extend dnn architecture, add BN layer, add Regularization, add activation functi
 Extend dnn to multi joint dnn.
 """
 import tensorflow as tf
-from tensorflow.python.estimator.canned import head as head_lib
+from tensorflow_estimator.python.estimator.canned import head as head_lib
+from tensorflow.python.layers import core as core_layers
+from tensorflow.python.ops.losses import losses
+# from tensorflow.keras.regularizers import l1, l2, l1_l2
 
 import os
 import sys
@@ -99,7 +102,7 @@ def _dnn_logit_fn(
         for layer_id, num_hidden_units in enumerate(hidden_units):
             with tf.variable_scope('dnn_{}/hiddenlayer_{}'.format(model_id, layer_id),
                     values=(net,)) as hidden_layer_scope:
-                net = tf.layers.dense(
+                net = core_layers.dense(
                     net,
                     units=num_hidden_units,
                     activation=ACTIVATION_FN,
@@ -124,7 +127,7 @@ def _dnn_logit_fn(
         for layer_id, num_hidden_units in enumerate(hidden_units):
             with tf.variable_scope('dnn_{}/hiddenlayer_{}'.format(model_id, layer_id),
                     values=(net,)) as hidden_layer_scope:
-                net = tf.layers.dense(
+                net = core_layers.dense(
                     net,
                     units=num_hidden_units,
                     activation=ACTIVATION_FN,
@@ -143,7 +146,7 @@ def _dnn_logit_fn(
         for layer_id, num_hidden_units in enumerate(hidden_units):
             with tf.variable_scope('dnn_{}/hiddenlayer_{}'.format(model_id, layer_id),
                     values=(net,)) as hidden_layer_scope:
-                net = tf.layers.dense(
+                net = core_layers.dense(
                     net,
                     units=num_hidden_units,
                     activation=ACTIVATION_FN,
@@ -163,7 +166,7 @@ def _dnn_logit_fn(
         for layer_id, num_hidden_units in enumerate(hidden_units):
             with tf.variable_scope('dnn_{}/hiddenlayer_{}'.format(model_id, layer_id),
                     values=(net,)) as hidden_layer_scope:
-                net = tf.layers.dense(
+                net = core_layers.dense(
                     net,
                     units=num_hidden_units,
                     activation=ACTIVATION_FN,
@@ -361,14 +364,11 @@ class MultiDNNClassifier(tf.estimator.Estimator):
         for model in model_collections:
             if not isinstance(model, DNN):
                 raise ValueError("model_collections element must be an instance of class DNN")
-        if n_classes == 2:
-            head = head_lib._binary_logistic_head_with_sigmoid_cross_entropy_loss(  # pylint: disable=protected-access
-                weight_column=weight_column,
-                label_vocabulary=label_vocabulary)
-        else:
-            head = head_lib._multi_class_head_with_softmax_cross_entropy_loss(  # pylint: disable=protected-access
-                n_classes, weight_column=weight_column,
-                label_vocabulary=label_vocabulary)
+        head = head_lib._binary_logistic_or_multi_class_head(  # pylint: disable=protected-access
+            n_classes, weight_column=weight_column,
+            label_vocabulary=label_vocabulary,
+            loss_reduction=losses.Reduction.SUM
+        )
 
         def _dnn_model_fn(
             features, labels, mode, head,
@@ -411,7 +411,7 @@ class MultiDNNClassifier(tf.estimator.Estimator):
                 max_partitions=num_ps_replicas)
             with tf.variable_scope(
                 'dnn',
-                values=tuple(six.itervalues(features)),
+                values=tuple(iter(features.values())),
                 partitioner=partitioner):
                 input_layer_partitioner = input_layer_partitioner or (
                     tf.min_max_variable_partitioner(

@@ -6,7 +6,24 @@
 import math
 import tensorflow as tf
 
-from typing import Callable, Optional
+from tensorflow.python.framework import constant_op
+from tensorflow.python.framework import dtypes
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import nn
+from tensorflow.python.ops import init_ops_v2 as init_ops
+from tensorflow.python.util import nest
+# from tensorflow.python.keras.optimizer_v2 import adagrad
+# from tensorflow.python.keras.optimizer_v2 import adam
+# from tensorflow.python.keras.optimizer_v2 import ftrl
+# from tensorflow.python.keras.optimizer_v2 import gradient_descent
+# from tensorflow.python.keras.optimizer_v2 import adamax
+# from tensorflow.python.keras.optimizer_v2 import rmsprop
+# from tensorflow.python.keras.optimizer_v2 import nadam
+
+from typing import Callable, Optional, List
 
 # Methods related to optimizers used in canned_estimators."""
 _OPTIMIZER_CLS_NAMES = dict(
@@ -50,6 +67,41 @@ def check_no_sync_replicas_optimizer(optimizer) -> None:
             'SyncReplicasOptimizer does not support multi optimizers case. '
             'Therefore, it is not supported in DNNLinearCombined model. '
             'If you want to use this optimizer, please use either DNN or Linear model.')
+
+
+def compute_fraction_of_zero(variables: List):
+    """Given a linear variables list, compute the fraction of zero weights.
+
+    Args:
+        variables: A list or list of list of variables
+
+    Returns:
+        The fraction of zeros (sparsity) in the linear model.
+    """
+    with ops.name_scope('zero_fraction'):
+        variables = nest.flatten(variables)
+
+        with ops.name_scope('total_size'):
+            sizes = [array_ops.size(x, out_type=dtypes.int64) for x in variables]
+            total_size_int64 = math_ops.add_n(sizes)
+        with ops.name_scope('total_zero'):
+            total_zero_float32 = math_ops.add_n([
+                control_flow_ops.cond(
+                    math_ops.equal(size, constant_op.constant(0, dtype=dtypes.int64)),
+                    true_fn=lambda: constant_op.constant(0, dtype=dtypes.float32),
+                    false_fn=lambda: nn.zero_fraction(x) * math_ops.to_float(size),
+                    name='zero_count')
+                for x, size in zip(variables, sizes)
+            ])
+
+        with ops.name_scope('compute'):
+            total_size_float32 = math_ops.cast(
+                total_size_int64, dtype=dtypes.float32, name='float32_size')
+            zero_fraction_or_nan = total_zero_float32 / total_size_float32
+
+        zero_fraction_or_nan = array_ops.identity(
+            zero_fraction_or_nan, name='zero_fraction_or_nan')
+        return zero_fraction_or_nan
 
 
 def _get_activation_fn(opt) -> Callable:
@@ -173,6 +225,7 @@ def _get_initializer(init_method: str, seed: Optional[int] = 42,**param):
         return tf.truncated_normal_initializer(
             stddev=param['init_value'], seed=seed
         )
+
 
 def _get_linear_learning_rate(num_linear_feature_columns: int) -> float:
     """Returns the default learning rate of the linear model.
