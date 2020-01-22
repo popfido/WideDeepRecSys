@@ -9,8 +9,17 @@ Extend dnn to multi joint dnn.
 """
 import tensorflow as tf
 from tensorflow_estimator.python.estimator.canned import head as head_lib
+from tensorflow_estimator.python.estimator.mode_keys import ModeKeys
+from tensorflow.python.framework import ops
+from tensorflow.python.feature_column import feature_column
+from tensorflow.python.feature_column import dense_features
+from tensorflow.python.feature_column import feature_column_lib
+from tensorflow.python.ops import variable_scope
+from tensorflow.python.ops import init_ops
 from tensorflow.python.layers import core as core_layers
+from tensorflow.python.layers import normalization
 from tensorflow.python.ops.losses import losses
+from tensorflow.python.keras.engine import training
 # from tensorflow.keras.regularizers import l1, l2, l1_l2
 
 import os
@@ -36,6 +45,128 @@ if len(regularizer_list) == 0:
     REG = None
 else:
     REG = tf.contrib.layers.sum_regularizer(regularizer_list)
+
+
+def _get_previous_name_scope():
+    current_name_scope = ops.get_name_scope()
+    return current_name_scope.rsplit('/', 1)[0] + '/'
+
+
+class _DNNModel(training.Model):
+
+    def __init__(self,
+                 model_id,
+                 connected_mode,
+                 units,
+                 hidden_units,
+                 feature_columns,
+                 activation_fn,
+                 dropout,
+                 input_layer_partitioner,
+                 batch_norm,
+                 name=None,
+                 **kwargs):
+        super(_DNNModel, self).__init__(name=name, **kwargs)
+
+        if feature_column_lib.is_feature_column_v2(feature_columns):
+            self._input_layer = dense_features.DenseFeatures(
+                feature_columns=feature_columns, name='input_layer')
+        else:
+            self._input_layer = feature_column.InputLayer(
+                feature_columns=feature_columns,
+                name='input_layer',
+                create_scope_now=False)
+
+        self._add_layer(self._input_layer, 'input_layer')
+
+        self._connected_mode = connected_mode
+        self._dropout = dropout
+        self._batch_norm = batch_norm
+
+        self._hidden_layers = []
+        self._dropout_layers = []
+        self._batch_norm_layers = []
+        self._hidden_layer_scope_names = []
+        for layer_id, num_hidden_units in enumerate(hidden_units):
+            with variable_scope.variable_scope('dnn_{}/hiddenlayer_{}'.format(model_id, layer_id),) \
+                    as hidden_layer_scope:
+                hidden_layer = core_layers.Dense(
+                    units=num_hidden_units,
+                    activation=activation_fn,
+                    use_bias=True,
+                    kernel_regularizer=REG,
+                    kernel_initializer=init_ops.glorot_uniform_initializer(),
+                    name=hidden_layer_scope,
+                    _scope=hidden_layer_scope)
+                self._add_layer(hidden_layer, hidden_layer_scope.name)
+                self._hidden_layer_scope_names.append(hidden_layer_scope.name)
+                self._hidden_layers.append(hidden_layer)
+                if self._dropout is not None:
+                    dropout_layer = core_layers.Dropout(rate=self._dropout)
+                    self._add_layer(dropout_layer, dropout_layer.name)
+                    self._dropout_layers.append(dropout_layer)
+                if self._batch_norm:
+                    batch_norm_layer = normalization.BatchNormalization(
+                        # The default momentum 0.99 actually crashes on certain
+                        # problem, so here we use 0.999, which is the default of
+                        # tf.contrib.layers.batch_norm.
+                        momentum=0.999,
+                        trainable=True,
+                        name='batchnorm_%d' % layer_id,
+                        _scope='batchnorm_%d' % layer_id)
+                    self._add_layer(batch_norm_layer, batch_norm_layer.name)
+                    self._batch_norm_layers.append(batch_norm_layer)
+
+        with variable_scope.variable_scope('logits') as logits_scope:
+            self._logits_layer = core_layers.Dense(
+                units=units,
+                activation=None,
+                kernel_initializer=init_ops.glorot_uniform_initializer(),
+                name=logits_scope,
+                _scope=logits_scope)
+            self._add_layer(self._logits_layer, logits_scope.name)
+            self._logits_scope_name = logits_scope.name
+        self._input_layer_partitioner = input_layer_partitioner
+
+    def call(self, features, mode, **kwargs):
+        is_training = mode == ModeKeys.TRAIN
+        # The Keras training.Model adds a name_scope with the name of the model
+        # which modifies the constructed graph. Hence we add another name_scope
+        # here which is the one before the training.Model one was applied.
+        # TODO: Remove this in TF 2.0 (b/116728605)
+        with ops.name_scope(name=_get_previous_name_scope()):
+            # TODO: Remove dependence on variable scope for partitioning.
+            with variable_scope.variable_scope(
+                    'input_from_feature_columns',
+                    partitioner=self._input_layer_partitioner,
+                    reuse=tf.AUTO_REUSE):
+                net = self._input_layer(features)
+            net_collections = [self._input_layer]
+            for i in range(len(self._hidden_layers)):
+                net = self._hidden_layers[i](net)
+                if self._dropout is not None and is_training:
+                    net = self._dropout_layers[i](net, training=True)
+                if self._batch_norm:
+                    net = self._batch_norm_layers[i](net, training=is_training)
+                net_collections.append(net)
+                if self._connected_mode == 'first_dense':
+                    net = tf.concat([net, self._input_layer], axis=1)
+                elif self._connected_mode == 'dense':
+                    net = tf.concat(net_collections, axis=1)
+                elif self._connected_mode == 'resnet':
+                    net = tf.concat([net, net_collections[i + 1 - 1]], axis=1)
+                add_layer_summary(net, self._hidden_layer_scope_names[i])
+            if self._connected_mode == 'last_dense':
+                net = tf.concat(net_collections, axis=1)
+            logits = self._logits_layer(net)
+            add_layer_summary(logits, self._logits_scope_name)
+            return logits
+
+    def _add_layer(self, layer, layer_name):
+        # "Magic" required for keras.Model classes to track all the variables in
+        # a list of layers.Layer objects.
+        # TODO: Figure out API so user code doesn't have to do this.
+        setattr(self, layer_name, layer)
 
 
 def _dnn_logit_fn(
@@ -241,6 +372,51 @@ def _dnn_logit_fn(
                 name=logits_scope)
     add_layer_summary(logits, logits_scope.name)
     return logits
+
+
+def dnn_logit_fn_builder(units, hidden_units_list, connected_mode_list,
+                         feature_columns, activation_fn,
+                         dropout, input_layer_partitioner, batch_norm):
+    if not isinstance(units, int):
+        raise ValueError('units must be an int. Given type: {}'.format(type(units)))
+    if not isinstance(hidden_units_list[0], (list, tuple)):
+        hidden_units_list = [hidden_units_list]  # compatible for single dnn input hidden_units
+        # raise ValueError('multi dnn hidden_units must be a 2D list or tuple. Given: {}'.format(hidden_units_list))
+    if isinstance(connected_mode_list, str) or \
+            (isinstance(connected_mode_list[0], str) and len(connected_mode_list[0]) == 3):  # `simple`
+        connected_mode_list = [connected_mode_list] * len(hidden_units_list)
+
+    def dnn_logit_fn(features, mode):
+        """Deep Neural Network logit_fn.
+
+        Args:
+            features: This is the first item returned from the `input_fn`
+                    passed to `train`, `evaluate`, and `predict`. This should be a
+                    single `Tensor` or `dict` of same.
+            mode: Optional. Specifies if this training, evaluation or prediction. See
+                    `ModeKeys`.
+
+        Returns:
+          A `Tensor` representing the logits, or a list of `Tensor`'s representing
+          multiple logits in the MultiHead case.
+        """
+        logits = []
+        for idx, (hidden_units, connected_mode) in enumerate(zip(hidden_units_list, connected_mode_list)):
+            dnn_model = _DNNModel(
+                model_id=idx,
+                units=units,
+                connected_mode=connected_mode,
+                hidden_units=hidden_units,
+                feature_columns=feature_columns,
+                activation_fn=activation_fn,
+                dropout=dropout,
+                input_layer_partitioner=input_layer_partitioner,
+                batch_norm=batch_norm,
+                name='dnn-{}'.format(idx))
+            logits.append(dnn_model(features, mode))
+        logits = tf.add_n(logits)
+        return logits
+    return dnn_logit_fn
 
 
 def multidnn_logit_fn_builder(units, hidden_units_list,

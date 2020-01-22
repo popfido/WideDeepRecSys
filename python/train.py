@@ -187,8 +187,8 @@ def main(unused_argv):
         # Clean up the model directory if not keep training
         shutil.rmtree(model_dir, ignore_errors=True)
         print('Remove model directory: {}'.format(model_dir))
-    model = build_estimator(model_dir, FLAGS.model_type)
-    # model = build_custom_estimator(model_dir, FLAGS.model_type)
+    # model = build_estimator(model_dir, FLAGS.model_type)
+    model = build_custom_estimator(model_dir, FLAGS.model_type)
     tf.compat.v1.logging.info('Build estimator: {}'.format(model))
 
     if CONFIG.train['dynamic_train']:

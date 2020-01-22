@@ -16,6 +16,7 @@ linear_initial_learning_rate: 0.05
 linear_decay_rate: 0.8
 linear_l1: 0.1
 linear_l2: 0.1
+linear_sparse_combiner: sum
 
 ## DNN Parameters
 

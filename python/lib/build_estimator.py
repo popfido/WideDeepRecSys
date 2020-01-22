@@ -215,17 +215,21 @@ def build_estimator(model_dir, model_type):
             model_dir=model_dir,
             feature_columns=wide_columns,
             weight_column=weight_column,
-            optimizer=CONF.model["linear_optimizer"],
+            optimizer=_get_optimizer_instance(CONF.model["linear_optimizer"],
+                                              learning_rate=CONF.model['linear_initial_learning_rate'],
+                                              l1_regularization_strength=CONF.model['linear_l1'],
+                                              l2_regularization_strength=CONF.model['linear_l2']),
+            sparse_combiner=CONF.model["linear_sparse_combiner"],
             config=run_config)
     elif model_type == 'deep':
         return tf.estimator.DNNClassifier(
             model_dir=model_dir,
             feature_columns=deep_columns,
             hidden_units=CONF.model["dnn_hidden_units"],
-            optimizer=_get_optimizer_instance(CONF.model["dnn_optimizer"],
-                learning_rate=CONF.model["dnn_initial_learning_rate"],
-                l1_regularization_strength=CONF.model["dnn_l1"],
-                l2_regularization_strength=CONF.model["dnn_l2"]),  # {'Adagrad', 'Adam', 'Ftrl', 'RMSProp', 'SGD'}
+            optimizer=_get_optimizer_instance(CONF.model["dnn_optimizer"],  # {'Adagrad', 'Adam', 'Ftrl', 'RMSProp', 'SGD'}
+                                              learning_rate=CONF.model["dnn_initial_learning_rate"],
+                                              l1_regularization_strength=CONF.model["dnn_l1"],
+                                              l2_regularization_strength=CONF.model["dnn_l2"]),
             activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),  # tf.nn.relu vs 'tf.nn.relu'
             dropout=CONF.model["dnn_dropout"],
             weight_column=weight_column,
@@ -235,14 +239,15 @@ def build_estimator(model_dir, model_type):
             model_dir=model_dir,  # self._model_dir = model_dir or self._config.model_dir
             linear_feature_columns=wide_columns,
             linear_optimizer=_get_optimizer_instance(CONF.model["linear_optimizer"],
-                learning_rate=CONF.model['linear_initial_learning_rate'],
-                l1_regularization_strength=CONF.model['linear_l1'],
-                l2_regularization_strength=CONF.model['linear_l2']),
+                                                     learning_rate=CONF.model['linear_initial_learning_rate'],
+                                                     l1_regularization_strength=CONF.model['linear_l1'],
+                                                     l2_regularization_strength=CONF.model['linear_l2']),
+            linear_sparse_combiner=CONF.model["linear_sparse_combiner"],
             dnn_feature_columns=deep_columns,
             dnn_optimizer=_get_optimizer_instance(CONF.model["dnn_optimizer"],
-                learning_rate=CONF.model["dnn_initial_learning_rate"],
-                l1_regularization_strength=CONF.model["dnn_l1"],
-                l2_regularization_strength=CONF.model["dnn_l2"]),
+                                                  learning_rate=CONF.model["dnn_initial_learning_rate"],
+                                                  l1_regularization_strength=CONF.model["dnn_l1"],
+                                                  l2_regularization_strength=CONF.model["dnn_l2"]),
             dnn_hidden_units=CONF.model["dnn_hidden_units"],
             dnn_activation_fn=_get_activation_fn(CONF.model["dnn_activation_function"]),
             dnn_dropout=CONF.model["dnn_dropout"],
@@ -292,6 +297,12 @@ if __name__ == '__main__':
     # _build_distribution()
     model = build_estimator('../model', 'wide')
     model = build_custom_estimator('../model', 'wide')
+
+    model = build_estimator('../model', 'deep')
+    model = build_custom_estimator('../model', 'deep')
+
+    model = build_estimator('../model', 'wide_deep')
+    model = build_custom_estimator('../model', 'wide_deep')
     # print(model.config)  # <tensorflow.python.estimator.run_config.RunConfig object at 0x118de4e10>
     # print(model.model_dir)  # ../model
     # print(model.model_fn)  # <function public_model_fn at 0x118de7b18>

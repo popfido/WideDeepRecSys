@@ -26,6 +26,8 @@ from tensorflow_estimator.python.estimator.canned import head as head_lib
 from tensorflow_estimator.python.estimator.mode_keys import ModeKeys
 from tensorflow.python.ops.losses import losses
 from tensorflow.python.ops import partitioned_variables
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import state_ops
 
 import os
 import sys
@@ -35,7 +37,7 @@ sys.path.insert(0, PACKAGE_DIR)
 
 from lib.read_conf import Config
 from lib.linear import linear_logit_fn_builder
-from lib.dnn import multidnn_logit_fn_builder
+from lib.dnn import multidnn_logit_fn_builder, dnn_logit_fn_builder
 from lib.utils.model_util import add_layer_summary, check_no_sync_replicas_optimizer, _get_activation_fn, _get_optimizer_instance
 from lib.cnn.vgg import Vgg16
 
@@ -92,6 +94,7 @@ def _wide_deep_combined_model_fn(
         dnn_hidden_units=None,
         dnn_connected_mode=None,
         input_layer_partitioner=None,
+        linear_sparse_combiner='sum',
         config=None):
     """Wide and Deep combined model_fn. (Dnn, Cnn, Linear)
 
@@ -172,22 +175,25 @@ def _wide_deep_combined_model_fn(
                 learning_rate=_DNN_LEARNING_RATE)
             if model_type == 'wide_deep':
                 check_no_sync_replicas_optimizer(dnn_optimizer)
-        dnn_partitioner = tf.min_max_variable_partitioner(max_partitions=num_ps_replicas)
+        dnn_partitioner = (
+            partitioned_variables.min_max_variable_partitioner(
+                max_partitions=num_ps_replicas))
         if not dnn_hidden_units:
-            raise ValueError(
-                'dnn_hidden_units must be defined when dnn_feature_columns is '
-                'specified.')
-
+            raise ValueError('dnn_hidden_units must be defined when dnn_feature_columns is specified.')
         with tf.variable_scope(
                 dnn_parent_scope,
                 values=tuple(iter(features.values())),
-                partitioner=dnn_partitioner):
-            dnn_logit_fn = multidnn_logit_fn_builder(
+                partitioner=dnn_partitioner) as scope:
+            dnn_absolute_scope = scope.name
+            dnn_logit_fn = dnn_logit_fn_builder(
                 units=head.logits_dimension,
                 hidden_units_list=dnn_hidden_units,
                 connected_mode_list=dnn_connected_mode,
                 feature_columns=dnn_feature_columns,
-                input_layer_partitioner=input_layer_partitioner
+                activation_fn=_get_activation_fn(CONF['dnn_activation_function']),
+                dropout=CONF['dnn_dropout'],
+                input_layer_partitioner=input_layer_partitioner,
+                batch_norm=CONF['dnn_batch_normalization']
             )
             dnn_logits = dnn_logit_fn(features=features, mode=mode)
 
@@ -206,9 +212,11 @@ def _wide_deep_combined_model_fn(
                 linear_parent_scope,
                 values=tuple(iter(features.values())),
                 partitioner=input_layer_partitioner) as scope:
+            linear_absolute_scope = scope.name
             logit_fn = linear_logit_fn_builder(
                 units=head.logits_dimension,
-                feature_columns=linear_feature_columns)
+                feature_columns=linear_feature_columns,
+                sparse_combiner=linear_sparse_combiner)
             linear_logits = logit_fn(features=features)
             add_layer_summary(linear_logits, scope.name)
 
@@ -232,52 +240,47 @@ def _wide_deep_combined_model_fn(
             add_layer_summary(cnn_logits, scope.name)
 
     # Combine logits and build full model.
-    logits_combine = []
-    # _BinaryLogisticHeadWithSigmoidCrossEntropyLoss, logits_dimension=1
-    for logits in [dnn_logits, linear_logits, cnn_logits]:  # shape: [batch_size, 1]
-        if logits is not None:
-            logits_combine.append(logits)
-    logits = tf.add_n(logits_combine)
+    if dnn_logits is not None and linear_logits is not None:
+        logits = dnn_logits + linear_logits
+    elif dnn_logits is not None:
+        logits = dnn_logits
+    else:
+        logits = linear_logits
 
     def _train_op_fn(loss):
         """Returns the op to optimize the loss."""
         train_ops = []
         global_step = tf.train.get_global_step()
-        # BN, when training, the moving_mean and moving_variance need to be updated. By default the
-        # update ops are placed in tf.GraphKeys.UPDATE_OPS, so they need to be added as a dependency to the train_op
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            if dnn_logits is not None:
-                train_ops.append(
-                    dnn_optimizer.minimize(
-                        loss,
-                        global_step=global_step,
-                        var_list=tf.get_collection(
-                            tf.GraphKeys.TRAINABLE_VARIABLES,
-                            scope=dnn_parent_scope)))
-            if linear_logits is not None:
-                train_ops.append(
-                    linear_optimizer.minimize(
-                        loss,
-                        global_step=global_step,
-                        var_list=tf.get_collection(
-                            tf.GraphKeys.TRAINABLE_VARIABLES,
-                            scope=linear_parent_scope)))
-            if cnn_logits is not None:
-                train_ops.append(
-                    cnn_optimizer.minimize(
-                        loss,
-                        global_step=global_step,
-                        var_list=tf.get_collection(
-                            tf.GraphKeys.TRAINABLE_VARIABLES,
-                            scope=cnn_parent_scope)))
-            # Create an op that groups multiple ops. When this op finishes,
-            # all ops in inputs have finished. This op has no output.
-            train_op = tf.group(*train_ops)
+        if dnn_logits is not None:
+            train_ops.append(
+                dnn_optimizer.minimize(
+                    loss,
+                    global_step=global_step,
+                    var_list=tf.get_collection(
+                        tf.GraphKeys.TRAINABLE_VARIABLES,
+                        scope=dnn_absolute_scope)))
+        if linear_logits is not None:
+            train_ops.append(
+                linear_optimizer.minimize(
+                    loss,
+                    global_step=global_step,
+                    var_list=tf.get_collection(
+                        tf.GraphKeys.TRAINABLE_VARIABLES,
+                        scope=linear_absolute_scope)))
+        #if cnn_logits is not None:
+        #    train_ops.append(
+        #        cnn_optimizer.minimize(
+        #            loss,
+        #            global_step=global_step,
+        #            var_list=tf.get_collection(
+        #                tf.GraphKeys.TRAINABLE_VARIABLES,
+        #                scope=cnn_absolote_scopre)))
+        # Create an op that groups multiple ops. When this op finishes,
+        # all ops in inputs have finished. This op has no output.
+        train_op = control_flow_ops.group(*train_ops)
         with tf.control_dependencies([train_op]):
             # Returns a context manager that specifies an op to colocate with.
-            with tf.colocate_with(global_step):
-                return tf.compat.v1.assign_add(global_step, 1)
+            return state_ops.assign_add(global_step, 1).op
 
     return head.create_estimator_spec(
                           features=features,
@@ -357,6 +360,8 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
                  label_vocabulary=None,
                  input_layer_partitioner=None,
                  loss_reduction=losses.Reduction.SUM,
+                 linear_sparse_combiner='sum',
+                 warm_start_from=None,
                  config=None):
         """Initializes a WideDeepCombinedClassifier instance.
 
@@ -398,6 +403,16 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
                 string.
             input_layer_partitioner: Partitioner for input layer. Defaults to
                 `min_max_variable_partitioner` with `min_slice_size` 64 << 20.
+            warm_start_from: A string filepath to a checkpoint to warm-start from, or
+                a `WarmStartSettings` object to fully configure warm-starting.  If the
+                string filepath is provided instead of a `WarmStartSettings`, then all
+                weights are warm-started, and it is assumed that vocabularies and Tensor
+                names are unchanged.
+             linear_sparse_combiner: A string specifying how to reduce the linear model
+                if a categorical column is multivalent.  One of "mean", "sqrtn", and
+                "sum" -- these are effectively different ways to do example-level
+                normalization, which can be useful for bag-of-words features.  For more
+                details, see `tf.feature_column.linear_model`.
             config: RunConfig object to configure the runtime settings.
 
         Raises:
@@ -411,12 +426,10 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
         else:
             assert model_type in {'wide', 'deep', 'wide_deep'}, (
                 "Invalid model type, must be one of `wide`, `deep`, `wide_deep`.")
-            if model_type == 'wide':
-                if not linear_feature_columns:
-                    raise ValueError('Linear_feature_columns must be defined for wide model.')
-            elif model_type == 'deep':
-                if not dnn_feature_columns:
-                    raise ValueError('Dnn_feature_columns must be defined for deep model.')
+            if model_type == 'wide' and not linear_feature_columns:
+                raise ValueError('Linear_feature_columns must be defined for wide model.')
+            elif model_type == 'deep' and not dnn_feature_columns:
+                raise ValueError('Dnn_feature_columns must be defined for deep model.')
         if dnn_feature_columns and not dnn_hidden_units:
             raise ValueError('dnn_hidden_units must be defined when dnn_feature_columns is specified.')
 
@@ -439,7 +452,8 @@ class WideAndDeepClassifier(tf.estimator.Estimator):
                 dnn_optimizer=dnn_optimizer,
                 dnn_hidden_units=dnn_hidden_units,
                 input_layer_partitioner=input_layer_partitioner,
+                linear_sparse_combiner=linear_sparse_combiner,
                 config=config)
         super(WideAndDeepClassifier, self).__init__(
-            model_fn=_model_fn, model_dir=model_dir, config=config)
+            model_fn=_model_fn, model_dir=model_dir, config=config, warm_start_from=warm_start_from)
 
