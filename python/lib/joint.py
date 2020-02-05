@@ -28,6 +28,7 @@ from tensorflow.python.ops.losses import losses
 from tensorflow.python.ops import partitioned_variables
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import state_ops
+from tensorflow.python.framework import ops
 
 import os
 import sys
@@ -154,13 +155,13 @@ def _wide_deep_combined_model_fn(
     )
     # weight decay lr
     global_step = tf.Variable(0)
-    _LINEAR_LEARNING_RATE = tf.train.exponential_decay(
+    _LINEAR_LEARNING_RATE = tf.compat.v1.train.exponential_decay(
         _linear_init_learning_rate, global_step=global_step, decay_steps=decay_steps, decay_rate=_linear_decay_rate,
         staircase=False)
-    _DNN_LEARNING_RATE = tf.train.exponential_decay(
+    _DNN_LEARNING_RATE = tf.compat.v1.train.exponential_decay(
         _dnn_init_learning_rate, global_step=global_step, decay_steps=decay_steps, decay_rate=_dnn_decay_rate,
         staircase=False)
-    _CNN_LEARNING_RATE = tf.train.exponential_decay(
+    _CNN_LEARNING_RATE = tf.compat.v1.train.exponential_decay(
         _cnn_init_learning_rate, global_step=global_step, decay_steps=decay_steps, decay_rate=_cnn_decay_rate,
         staircase=False)
 
@@ -256,16 +257,16 @@ def _wide_deep_combined_model_fn(
                 dnn_optimizer.minimize(
                     loss,
                     global_step=global_step,
-                    var_list=tf.get_collection(
-                        tf.GraphKeys.TRAINABLE_VARIABLES,
+                    var_list=ops.get_collection(
+                        ops.GraphKeys.TRAINABLE_VARIABLES,
                         scope=dnn_absolute_scope)))
         if linear_logits is not None:
             train_ops.append(
                 linear_optimizer.minimize(
                     loss,
                     global_step=global_step,
-                    var_list=tf.get_collection(
-                        tf.GraphKeys.TRAINABLE_VARIABLES,
+                    var_list=ops.get_collection(
+                        ops.GraphKeys.TRAINABLE_VARIABLES,
                         scope=linear_absolute_scope)))
         #if cnn_logits is not None:
         #    train_ops.append(

@@ -146,8 +146,8 @@ class _DNNModel(training.Model):
                 net = self._hidden_layers[i](net)
                 if self._dropout is not None and is_training:
                     net = self._dropout_layers[i](net, training=True)
-                if self._batch_norm:
-                    net = self._batch_norm_layers[i](net, training=is_training)
+                if self._batch_norm and is_training:
+                    net = self._batch_norm_layers[i](net, training=True)
                 net_collections.append(net)
                 if self._connected_mode == 'first_dense':
                     net = tf.concat([net, self._input_layer], axis=1)
@@ -414,8 +414,10 @@ def dnn_logit_fn_builder(units, hidden_units_list, connected_mode_list,
                 batch_norm=batch_norm,
                 name='dnn-{}'.format(idx))
             logits.append(dnn_model(features, mode))
-        logits = tf.add_n(logits)
-        return logits
+        final_logit = logits[0]
+        for logit in logits[1:]:
+            final_logit += logit
+        return final_logit
     return dnn_logit_fn
 
 
@@ -460,7 +462,9 @@ def multidnn_logit_fn_builder(units, hidden_units_list,
                     connected_mode,
                     feature_columns,
                     input_layer_partitioner))
-        logits = tf.add_n(logits)  # Adds all input tensors element-wise.
+        final_logits = logits[0]
+        for logit in logits[1:]:
+            final_logits += logit # Adds all input tensors element-wise.
         return logits
     return multidnn_logit_fn
 

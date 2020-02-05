@@ -89,7 +89,7 @@ def compute_fraction_of_zero(variables: List):
                 control_flow_ops.cond(
                     math_ops.equal(size, constant_op.constant(0, dtype=dtypes.int64)),
                     true_fn=lambda: constant_op.constant(0, dtype=dtypes.float32),
-                    false_fn=lambda: nn.zero_fraction(x) * math_ops.to_float(size),
+                    false_fn=lambda: nn.zero_fraction(x) * tf.cast(size, dtypes.float32),
                     name='zero_count')
                 for x, size in zip(variables, sizes)
             ])
