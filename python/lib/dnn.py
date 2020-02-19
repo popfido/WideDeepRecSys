@@ -141,7 +141,7 @@ class _DNNModel(training.Model):
                     partitioner=self._input_layer_partitioner,
                     reuse=tf.AUTO_REUSE):
                 net = self._input_layer(features)
-            net_collections = [self._input_layer]
+            net_collections = [self._input_layer(features)]
             for i in range(len(self._hidden_layers)):
                 net = self._hidden_layers[i](net)
                 if self._dropout is not None and is_training:
@@ -165,7 +165,6 @@ class _DNNModel(training.Model):
     def _add_layer(self, layer, layer_name):
         # "Magic" required for keras.Model classes to track all the variables in
         # a list of layers.Layer objects.
-        # TODO: Figure out API so user code doesn't have to do this.
         setattr(self, layer_name, layer)
 
 
