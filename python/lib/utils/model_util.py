@@ -27,13 +27,13 @@ from typing import Callable, Optional, List
 
 # Methods related to optimizers used in canned_estimators."""
 _OPTIMIZER_CLS_NAMES = dict(
-  Adadelta=tf.train.AdadeltaOptimizer,
-  Adagrad=tf.train.AdagradOptimizer,
-  Adam=tf.train.AdamOptimizer,
-  Ftrl=tf.train.FtrlOptimizer,
-  Momentum=tf.train.MomentumOptimizer,
-  RMSProp=tf.train.RMSPropOptimizer,
-  SGD=tf.train.GradientDescentOptimizer,
+  Adadelta=tf.compat.v1.train.AdadeltaOptimizer,
+  Adagrad=tf.compat.v1.train.AdagradOptimizer,
+  Adam=tf.compat.v1.train.AdamOptimizer,
+  Ftrl=tf.compat.v1.train.FtrlOptimizer,
+  Momentum=tf.compat.v1.train.MomentumOptimizer,
+  RMSProp=tf.compat.v1.train.RMSPropOptimizer,
+  SGD=tf.compat.v1.train.GradientDescentOptimizer,
 )
 
 _ACTIVATION_FN_NAMES = dict(
