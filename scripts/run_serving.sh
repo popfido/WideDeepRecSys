@@ -61,7 +61,7 @@ cd ../python/tensorflow_serving
 python export_savedmodel.py
 echo "Already export SavedModel."
 
-# locally compiled ModelServer
+# locally compile ModelServer
 # bazel build //tensorflow_serving/model_servers:tensorflow_model_server
 # bazel-bin/tensorflow_serving/model_servers/tensorflow_model_server --port=9000 --model_base_path=$export_dir_base
 

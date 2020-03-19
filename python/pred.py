@@ -13,7 +13,7 @@ import tensorflow as tf
 
 from lib.read_conf import Config
 from lib.dataset import input_fn
-from lib.build_estimator import build_estimator
+from lib.build_estimator import build_estimator, build_custom_estimator
 from lib.utils.util import elapse_time
 
 CONFIG = Config().train
@@ -53,7 +53,8 @@ def main(unused_argv):
     print('Model type: {}'.format(FLAGS.model_type))
     model_dir = os.path.join(FLAGS.model_dir, FLAGS.model_type)
     print('Model directory: {}'.format(model_dir))
-    model = build_estimator(model_dir, FLAGS.model_type)
+    # model = build_estimator(model_dir, FLAGS.model_type)
+    model = build_custom_estimator(model_dir, FLAGS.model_type)
     tf.logging.info('Build estimator: {}'.format(model))
 
     tf.logging.info('='*30+'START PREDICTION'+'='*30)
