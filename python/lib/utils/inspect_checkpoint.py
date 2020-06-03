@@ -6,15 +6,16 @@
 import sys
 
 import tensorflow as tf
+from absl import flags
 
 # or use the inspect_checkpoint library
 # from tensorflow.python.tools import inspect_checkpoint as chkp
 # chkp.print_tensors_in_checkpoint_file("/tmp/model.ckpt", tensor_name='', all_tensors=True)
 
 
-FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string("checkpoint_path", "", "Checkpoint file path")
-tf.app.flags.DEFINE_string("tensor_name", "", "Name of the tensor to inspect")
+FLAGS = flags.FLAGS
+flags.DEFINE_string("checkpoint_path", "", "Checkpoint file path")
+flags.DEFINE_string("tensor_name", "", "Name of the tensor to inspect")
 
 # checkpoint_path = FLAGS.file_name
 # reader = tf.train.NewCheckpointReader(checkpoint_path)

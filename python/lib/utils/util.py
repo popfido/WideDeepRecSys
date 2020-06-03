@@ -26,7 +26,7 @@ def timer(info: str = ''):
     return _timer
 
 
-def elapse_time(start_time) -> int:
+def elapse_time(start_time: int) -> int:
     return round((time.time()-start_time) / 60)
 
 

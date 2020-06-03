@@ -14,6 +14,7 @@ from typing import Callable
 
 import numpy as np
 import tensorflow as tf
+from absl import logging
 
 # fix ImportError: No mudule named lib.*
 import sys
@@ -65,8 +66,8 @@ def _build_model_columns():
 
     feature_conf_dic = CONF.read_feature_conf()
     cross_feature_list = CONF.read_cross_feature_conf()
-    tf.compat.v1.logging.info('Total used feature class: {}'.format(len(feature_conf_dic)))
-    tf.compat.v1.logging.info('Total used cross feature class: {}'.format(len(cross_feature_list)))
+    logging.info('Total used feature class: {}'.format(len(feature_conf_dic)))
+    logging.info('Total used cross feature class: {}'.format(len(cross_feature_list)))
 
     wide_columns = []
     deep_columns = []
@@ -153,14 +154,14 @@ def _build_model_columns():
             deep_columns.append(embedding_column(col, dimension=_embedding_dim(hash_bucket_size)))
             deep_dim += _embedding_dim(hash_bucket_size)
     # add columns logging info
-    tf.compat.v1.logging.info('Build total {} wide columns'.format(len(wide_columns)))
+    logging.info('Build total {} wide columns'.format(len(wide_columns)))
     for col in wide_columns:
-        tf.compat.v1.logging.debug('Wide columns: {}'.format(col))
-    tf.compat.v1.logging.info('Build total {} deep columns'.format(len(deep_columns)))
+        logging.debug('Wide columns: {}'.format(col))
+    logging.info('Build total {} deep columns'.format(len(deep_columns)))
     for col in deep_columns:
-        tf.compat.v1.logging.debug('Deep columns: {}'.format(col))
-    tf.compat.v1.logging.info('Wide input dimension is: {}'.format(wide_dim))
-    tf.compat.v1.logging.info('Deep input dimension is: {}'.format(deep_dim))
+        logging.debug('Deep columns: {}'.format(col))
+    logging.info('Wide input dimension is: {}'.format(wide_dim))
+    logging.info('Deep input dimension is: {}'.format(deep_dim))
 
     return wide_columns, deep_columns
 

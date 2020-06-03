@@ -9,6 +9,7 @@ import sys
 import time
 
 import tensorflow as tf
+from absl import logging, app
 
 from lib.read_conf import Config
 from lib.dataset import input_fn
@@ -60,20 +61,20 @@ def main(unused_argv):
     print('Model directory: {}'.format(model_dir))
     #model = build_estimator(model_dir, FLAGS.model_type)
     model = build_custom_estimator(model_dir, FLAGS.model_type)
-    tf.logging.info('Build estimator: {}'.format(model))
+    logging.info('Build estimator: {}'.format(model))
     # checkpoint_path = FLAGS.checkpoint_path or model.latest_checkpoint()
     # if checkpoint_path is None:
     #     raise ValueError('No model checkpoint found, please check the model dir.')
     # tf.logging.info('Using model checkpoint: {}'.format(checkpoint_path))
     # print('\n')
-    tf.logging.info('='*30+' START TESTING'+'='*30)
+    logging.info('='*30+' START TESTING'+'='*30)
     s_time = time.time()
     results = model.evaluate(input_fn=lambda: input_fn(FLAGS.test_data, FLAGS.image_test_data, 'eval', FLAGS.batch_size),
                              steps=None,  # Number of steps for which to evaluate model.
                              hooks=None,
                              checkpoint_path=FLAGS.checkpoint_path,  # If None, the latest checkpoint is used.
                              name=None)
-    tf.logging.info('='*30+'FINISH TESTING, TAKE {}'.format(elapse_time(s_time))+'='*30)
+    logging.info('='*30+'FINISH TESTING, TAKE {}'.format(elapse_time(s_time))+'='*30)
     # Display evaluation metrics
     print('-' * 80)
     for key in sorted(results):
@@ -82,6 +83,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
-    tf.logging.set_verbosity(tf.logging.INFO)
+    logging.set_verbosity(tf.logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
-    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    app.run(main=main, argv=[sys.argv[0]] + unparsed)

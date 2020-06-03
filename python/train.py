@@ -11,6 +11,7 @@ import sys
 import time
 
 import tensorflow as tf
+from absl import app, logging
 
 from lib.read_conf import Config
 from lib.dataset import input_fn
@@ -60,20 +61,20 @@ parser.add_argument(
 
 def train_and_eval(model):
     for n in range(FLAGS.train_epochs):
-        tf.compat.v1.logging.info('=' * 30 + ' START EPOCH {} '.format(n + 1) + '=' * 30 + '\n')
+        logging.info('=' * 30 + ' START EPOCH {} '.format(n + 1) + '=' * 30 + '\n')
         train_data_list = list_files(FLAGS.train_data)  # dir to file list
         for f in train_data_list:
             t0 = time.time()
-            tf.compat.v1.logging.info('<EPOCH {}>: Start training {}'.format(n + 1, f))
+            logging.info('<EPOCH {}>: Start training {}'.format(n + 1, f))
             model.train(
                 input_fn=lambda: input_fn(f, FLAGS.image_train_data, 'train', FLAGS.batch_size),
                 hooks=None,
                 steps=None,
                 max_steps=None,
                 saving_listeners=None)
-            tf.compat.v1.logging.info('<EPOCH {}>: Finish training {}, take {} mins'.format(n + 1, f, elapse_time(t0)))
+            logging.info('<EPOCH {}>: Finish training {}, take {} mins'.format(n + 1, f, elapse_time(t0)))
             print('-' * 80)
-            tf.compat.v1.logging.info('<EPOCH {}>: Start evaluating {}'.format(n + 1, FLAGS.eval_data))
+            logging.info('<EPOCH {}>: Start evaluating {}'.format(n + 1, FLAGS.eval_data))
             t0 = time.time()
             results = model.evaluate(
                 input_fn=lambda: input_fn(FLAGS.eval_data, FLAGS.image_eval_data, 'eval', FLAGS.batch_size),
@@ -81,21 +82,21 @@ def train_and_eval(model):
                 hooks=None,
                 checkpoint_path=None,  # latest checkpoint in model_dir is used.
                 name=None)
-            tf.compat.v1.logging.info('<EPOCH {}>: Finish evaluation {}, take {} mins'.format(n + 1, FLAGS.eval_data, elapse_time(t0)))
+            logging.info('<EPOCH {}>: Finish evaluation {}, take {} mins'.format(n + 1, FLAGS.eval_data, elapse_time(t0)))
             print('-' * 80)
             # Display evaluation metrics
             for key in sorted(results):
                 print('{}: {}'.format(key, results[key]))
         # every epochs_per_eval test the model (use larger test dataset)
         if (n+1) % FLAGS.epochs_per_eval == 0:
-            tf.compat.v1.logging.info('<EPOCH {}>: Start testing {}'.format(n + 1, FLAGS.test_data))
+            logging.info('<EPOCH {}>: Start testing {}'.format(n + 1, FLAGS.test_data))
             results = model.evaluate(
                 input_fn=lambda: input_fn(FLAGS.test_data, FLAGS.image_test_data, 'pred', FLAGS.batch_size),
                  steps=None,  # Number of steps for which to evaluate model.
                  hooks=None,
                  checkpoint_path=None,  # If None, the latest checkpoint in model_dir is used.
                  name=None)
-            tf.compat.v1.logging.info('<EPOCH {}>: Finish testing {}, take {} mins'.format(n + 1, FLAGS.test_data, elapse_time(t0)))
+            logging.info('<EPOCH {}>: Finish testing {}, take {} mins'.format(n + 1, FLAGS.test_data, elapse_time(t0)))
             print('-' * 80)
             # Display evaluation metrics
             for key in sorted(results):
@@ -118,19 +119,19 @@ def dynamic_train(model):
     for i in range(len(data_files)-1):
         train_data = data_files[i]
         test_data = data_files[i+1]
-        tf.compat.v1.logging.info('=' * 30 + ' START TRAINING DATA: {} '.format(train_data) + '=' * 30 + '\n')
+        logging.info('=' * 30 + ' START TRAINING DATA: {} '.format(train_data) + '=' * 30 + '\n')
         for n in range(FLAGS.train_epochs):
             t0 = time.time()
-            tf.compat.v1.logging.info('START TRAIN DATA <{}> <EPOCH {}>'.format(train_data, n + 1))
+            logging.info('START TRAIN DATA <{}> <EPOCH {}>'.format(train_data, n + 1))
             model.train(
                 input_fn=lambda: input_fn(train_data, FLAGS.image_train_data, 'train', FLAGS.batch_size),
                 hooks=None,
                 steps=None,
                 max_steps=None,
                 saving_listeners=None)
-            tf.compat.v1.logging.info('FINISH TRAIN DATA <{}> <EPOCH {}> take {} mins'.format(train_data, n + 1, elapse_time(t0)))
+            logging.info('FINISH TRAIN DATA <{}> <EPOCH {}> take {} mins'.format(train_data, n + 1, elapse_time(t0)))
             print('-' * 80)
-            tf.compat.v1.logging.info('START EVALUATE TEST DATA <{}> <EPOCH {}>'.format(test_data, n + 1))
+            logging.info('START EVALUATE TEST DATA <{}> <EPOCH {}>'.format(test_data, n + 1))
             t0 = time.time()
             results = model.evaluate(
                 input_fn=lambda: input_fn(test_data, FLAGS.image_eval_data, 'eval', FLAGS.batch_size),
@@ -138,7 +139,7 @@ def dynamic_train(model):
                 hooks=None,
                 checkpoint_path=None,  # latest checkpoint in model_dir is used.
                 name=None)
-            tf.compat.v1.logging.info('FINISH EVALUATE TEST DATA <{}> <EPOCH {}>: take {} mins'.format(test_data, n + 1, elapse_time(t0)))
+            logging.info('FINISH EVALUATE TEST DATA <{}> <EPOCH {}>: take {} mins'.format(test_data, n + 1, elapse_time(t0)))
             print('-' * 80)
             # Display evaluation metrics
             for key in sorted(results):
@@ -147,18 +148,18 @@ def dynamic_train(model):
 
 def train(model):
     for n in range(FLAGS.train_epochs):
-        tf.compat.v1.logging.info('=' * 30 + ' START EPOCH {} '.format(n + 1) + '=' * 30 + '\n')
+        logging.info('=' * 30 + ' START EPOCH {} '.format(n + 1) + '=' * 30 + '\n')
         train_data_list = list_files(FLAGS.train_data)  # dir to file list
         for f in train_data_list:
             t0 = time.time()
-            tf.compat.v1.logging.info('<EPOCH {}>: Start training {}'.format(n + 1, f))
+            logging.info('<EPOCH {}>: Start training {}'.format(n + 1, f))
             model.train(
                 input_fn=lambda: input_fn(f, FLAGS.image_train_data, 'train', FLAGS.batch_size),
                 hooks=None,
                 steps=None,
                 max_steps=None,
                 saving_listeners=None)
-            tf.compat.v1.logging.info('<EPOCH {}>: Finish training {}, take {} mins'.format(n + 1, f, elapse_time(t0)))
+            logging.info('<EPOCH {}>: Finish training {}, take {} mins'.format(n + 1, f, elapse_time(t0)))
 
 
 def train_and_eval_api(model):
@@ -189,7 +190,7 @@ def main(unused_argv):
         print('Remove model directory: {}'.format(model_dir))
     # model = build_estimator(model_dir, FLAGS.model_type)
     model = build_custom_estimator(model_dir, FLAGS.model_type)
-    tf.compat.v1.logging.info('Build estimator: {}'.format(model))
+    logging.info('Build estimator: {}'.format(model))
 
     if CONFIG.train['dynamic_train']:
         train_fn = dynamic_train
@@ -246,6 +247,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+    logging.set_verbosity(logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
-    tf.compat.v1.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    app.run(main=main, argv=[sys.argv[0]] + unparsed)

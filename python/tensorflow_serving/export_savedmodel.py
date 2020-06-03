@@ -73,9 +73,9 @@ def main(_):
     export_dir = os.path.join(FLAGS.export_dir, FLAGS.model_type)
     model = build_custom_estimator(model_dir, FLAGS.model_type)
     model.export_saved_model(export_dir,
-                            serving_input_receiver_fn,
-                            as_text=CONF['as_text'],
-                            checkpoint_path=FLAGS.checkpoint_path)
+                             serving_input_receiver_fn,
+                             as_text=CONF['as_text'],
+                             checkpoint_path=FLAGS.checkpoint_path)
 
 
 if __name__ == '__main__':

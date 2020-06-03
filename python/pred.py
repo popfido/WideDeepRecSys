@@ -10,6 +10,7 @@ import sys
 import time
 
 import tensorflow as tf
+from absl import app, logging
 
 from lib.read_conf import Config
 from lib.dataset import input_fn
@@ -55,15 +56,15 @@ def main(unused_argv):
     print('Model directory: {}'.format(model_dir))
     # model = build_estimator(model_dir, FLAGS.model_type)
     model = build_custom_estimator(model_dir, FLAGS.model_type)
-    tf.logging.info('Build estimator: {}'.format(model))
+    logging.info('Build estimator: {}'.format(model))
 
-    tf.logging.info('='*30+'START PREDICTION'+'='*30)
+    logging.info('='*30+'START PREDICTION'+'='*30)
     t0 = time.time()
     predictions = model.predict(input_fn=lambda: input_fn(FLAGS.data_dir, FLAGS.image_data_dir, 'pred', FLAGS.batch_size),
                                 predict_keys=None,
                                 hooks=None,
                                 checkpoint_path=FLAGS.checkpoint_path)  # defaults None to use latest_checkpoint
-    tf.logging.info('='*30+'FINISH PREDICTION, TAKE {} mins'.format(elapse_time(t0))+'='*30)
+    logging.info('='*30+'FINISH PREDICTION, TAKE {} mins'.format(elapse_time(t0))+'='*30)
 
     for pred_dict in predictions:  # dict{probabilities, classes, class_ids}
         class_id = pred_dict['class_ids'][0]
@@ -72,6 +73,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
-    tf.logging.set_verbosity(tf.logging.INFO)
+    logging.set_verbosity(tf.logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
-    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    app.run(main=main, argv=[sys.argv[0]] + unparsed)

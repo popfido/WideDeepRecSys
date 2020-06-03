@@ -6,6 +6,7 @@
 from collections import OrderedDict
 import abc
 import tensorflow as tf
+from absl import logging
 
 import os
 import sys
@@ -171,7 +172,7 @@ class _CsvDataset(_CTRDataset):
     def input_fn(self, mode, batch_size):
         assert mode in {'train', 'eval', 'pred'}, (
             'mode must in `train`, `eval`, or `pred`, found {}'.format(mode))
-        tf.compat.v1.logging.info('Parsing input csv files: {}'.format(self._data_file))
+        logging.info('Parsing input csv files: {}'.format(self._data_file))
         # Extract lines from input files using the Dataset API.
         dataset = tf.data.TextLineDataset(self._data_file)
         if self._is_distribution:  # allows each worker to read a unique subset.
@@ -283,7 +284,7 @@ class _ImageDataSet(_CTRDataset):
         # if is_training:
         #     dataset = dataset.shuffle(buffer_size=100)
         # dataset = dataset.flat_map(tf.data.TFRecordDataset)
-        tf.compat.v1.logging.info('Parsing input image data files: {}'.format(self._data_file))
+        logging.info('Parsing input image data files: {}'.format(self._data_file))
         dataset = tf.data.TFRecordDataset(self._data_file)
         dataset = dataset.map(lambda value: self.parse_example(value, mode == 'train'))
         dataset = dataset.prefetch(2*batch_size)

@@ -9,7 +9,7 @@ sys.path.insert(0, PACKAGE_DIR)
 
 from lib.read_conf import Config
 from lib.dataset import input_fn
-from lib.build_estimator import build_estimator
+from lib.build_estimator import build_custom_estimator, build_estimator
 
 
 TEST_CSV = os.path.join(os.path.dirname(PACKAGE_DIR), 'data/test/test2')
@@ -99,5 +99,5 @@ class BaseTest(tf.test.TestCase):
 
 if __name__ == '__main__':
     logging.set_verbosity(logging.DEBUG)
-    tf.compat.v1.logging.set_verbosity(tf.logging.DEBUG)
+    logging.set_verbosity(tf.logging.DEBUG)
     tf.test.main()
